@@ -26,6 +26,7 @@ pub trait DeductionPort: Send + Sync {
 
 /// Cross-feature contract: trip module defines this; uber module implements it.
 /// Allows plugging in Uber API without changing trip logic.
+#[allow(dead_code)]
 #[async_trait]
 pub trait TripSourcePort: Send + Sync {
     async fn fetch_trips(
@@ -37,6 +38,7 @@ pub trait TripSourcePort: Send + Sync {
 }
 
 /// Minimal trip data returned by any TripSourcePort implementor.
+#[allow(dead_code)]
 pub struct ExternalTrip {
     pub driver_id: Uuid,
     pub trip_date: NaiveDate,

@@ -31,7 +31,7 @@ pub async fn list_invoices(
 }
 
 pub async fn get_invoice(
-    user: CurrentUser,
+    _user: CurrentUser,
     svc: web::Data<Arc<InvoiceService>>,
     path: web::Path<Uuid>,
 ) -> Result<HttpResponse, AppError> {

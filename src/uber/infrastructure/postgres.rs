@@ -6,6 +6,7 @@ use crate::common::{error::AppError, ports::{ExternalTrip, TripSourcePort}};
 
 /// No-op stub — Uber API integration not yet contracted.
 /// Satisfies the TripSourcePort so the trip module can be extended later.
+#[allow(dead_code)]
 pub struct UberTripSource;
 
 #[async_trait]

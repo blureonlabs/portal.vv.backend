@@ -50,6 +50,7 @@ pub struct DayEarnings {
     pub total_aed: Decimal,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 pub struct NotificationItem {
     pub id: Uuid,

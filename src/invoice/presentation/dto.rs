@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::invoice::domain::entity::{Invoice, LineItem};
+use crate::invoice::domain::entity::Invoice;
 
 // ── Requests ──────────────────────────────────────────────────────────────────
 

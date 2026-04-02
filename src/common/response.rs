@@ -19,6 +19,7 @@ impl<T: Serialize> ApiResponse<T> {
         Self { data: Some(data), error: None, meta: None }
     }
 
+    #[allow(dead_code)]
     pub fn paged(data: T, page: i64, page_size: i64, total: i64) -> Self {
         Self {
             data: Some(data),
@@ -29,6 +30,7 @@ impl<T: Serialize> ApiResponse<T> {
 }
 
 impl ApiResponse<()> {
+    #[allow(dead_code)]
     pub fn err(msg: impl Into<String>) -> Self {
         Self { data: None, error: Some(msg.into()), meta: None }
     }

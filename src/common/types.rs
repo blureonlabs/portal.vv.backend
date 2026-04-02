@@ -23,5 +23,6 @@ pub enum SalaryType {
 pub struct CurrentUser {
     pub id: Uuid,
     pub role: Role,
+    #[allow(dead_code)]
     pub email: String,
 }

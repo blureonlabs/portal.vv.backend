@@ -4,6 +4,7 @@ use uuid::Uuid;
 /// Domain events emitted by feature modules.
 /// Consumed by `notification` (email dispatch) and `audit` (immutable log).
 /// Features never call notification/audit directly — they emit events only.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum DomainEvent {
     // Auth

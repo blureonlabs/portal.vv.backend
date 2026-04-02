@@ -18,6 +18,7 @@ pub enum AppError {
     #[error("Conflict: {0}")]
     Conflict(String),
 
+    #[allow(dead_code)]
     #[error("Unprocessable: {0}")]
     Unprocessable(String),
 

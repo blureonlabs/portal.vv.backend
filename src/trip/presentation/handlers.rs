@@ -10,7 +10,7 @@ use crate::trip::application::service::TripService;
 use crate::trip::domain::entity::CsvPreviewRow;
 use crate::trip::presentation::dto::{
     CreateTripRequest, CsvImportRequest, CsvPreviewRequest, CsvPreviewResponse,
-    CsvPreviewRowDto, ListTripsQuery, TripResponse,
+    ListTripsQuery, TripResponse,
 };
 
 /// Resolve the driver_id for the calling user (driver role only).

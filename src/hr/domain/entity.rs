@@ -31,6 +31,7 @@ pub struct LeaveRequest {
     pub actioned_by_name: Option<String>,
     pub rejection_reason: Option<String>,
     pub created_at: DateTime<Utc>,
+    #[allow(dead_code)]
     pub updated_at: DateTime<Utc>,
 }
 

@@ -15,6 +15,7 @@ pub trait TripRepository: Send + Sync {
         to: NaiveDate,
     ) -> Result<Vec<Trip>, AppError>;
 
+    #[allow(dead_code)]
     async fn find_by_id(&self, id: Uuid) -> Result<Trip, AppError>;
 
     async fn create(&self, payload: CreateTrip) -> Result<Trip, AppError>;

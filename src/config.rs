@@ -12,6 +12,7 @@ pub struct AppConfig {
 
     // Supabase
     pub supabase_url: String,
+    #[allow(dead_code)]
     pub supabase_anon_key: String,
     pub supabase_service_role_key: String,
     pub supabase_jwt_secret: String,

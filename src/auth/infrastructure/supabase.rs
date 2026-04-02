@@ -26,6 +26,7 @@ struct SupabaseUser {
     id: Uuid,
 }
 
+#[allow(dead_code)]
 #[derive(Serialize)]
 struct UpdateUserPayload<'a> {
     password: &'a str,
@@ -60,6 +61,7 @@ impl SupabaseAdminClient {
         Ok(user.id)
     }
 
+    #[allow(dead_code)]
     pub async fn disable_user(&self, user_id: Uuid) -> Result<(), AppError> {
         #[derive(Serialize)]
         struct Payload { ban_duration: &'static str }
@@ -107,6 +109,7 @@ impl SupabaseAdminClient {
         Ok(data.action_link)
     }
 
+    #[allow(dead_code)]
     pub async fn enable_user(&self, user_id: Uuid) -> Result<(), AppError> {
         #[derive(Serialize)]
         struct Payload { ban_duration: &'static str }
