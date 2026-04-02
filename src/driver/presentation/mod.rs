@@ -13,5 +13,6 @@ pub fn routes(cfg: &mut web::ServiceConfig) {
             .route("/{id}/deactivate", web::put().to(handlers::deactivate_driver))
             .route("/{id}/activate", web::put().to(handlers::activate_driver))
             .route("/{id}/edits", web::get().to(handlers::list_driver_edits))
+            .route("/{id}/self-entry", web::put().to(handlers::set_self_entry))
     );
 }

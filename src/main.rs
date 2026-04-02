@@ -49,6 +49,14 @@ use vehicle::{
     infrastructure::PgVehicleRepository,
     application::service::VehicleService,
 };
+use trip::{
+    infrastructure::PgTripRepository,
+    application::service::TripService,
+};
+use finance::{
+    infrastructure::PgFinanceRepository,
+    application::service::FinanceService,
+};
 
 #[derive(Parser)]
 #[command(name = "fms", about = "Fleet Management System — UAE Operations")]
@@ -121,6 +129,12 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let vehicle_repo: Arc<dyn VehicleRepository> = Arc::new(PgVehicleRepository::new(db.pg_pool().clone()));
     let vehicle_svc = Arc::new(VehicleService::new(Arc::clone(&vehicle_repo), Arc::clone(&audit_svc)));
 
+    let trip_repo = Arc::new(PgTripRepository::new(db.pg_pool().clone()));
+    let trip_svc = Arc::new(TripService::new(trip_repo));
+
+    let finance_repo = Arc::new(PgFinanceRepository::new(db.pg_pool().clone()));
+    let finance_svc = Arc::new(FinanceService::new(finance_repo));
+
     // ── Clone for move into closure ───────────────────────────────────────────
     let config_data = web::Data::new((*config).clone());
     let db_data = web::Data::new(db);
@@ -128,6 +142,8 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let auth_repo_data = web::Data::new(Arc::clone(&auth_repo));
     let driver_svc_data = web::Data::new(Arc::clone(&driver_svc));
     let vehicle_svc_data = web::Data::new(Arc::clone(&vehicle_svc));
+    let trip_svc_data = web::Data::new(Arc::clone(&trip_svc));
+    let finance_svc_data = web::Data::new(Arc::clone(&finance_svc));
 
     HttpServer::new(move || {
         let cors = actix_cors::Cors::default()
@@ -145,6 +161,8 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
             .app_data(auth_repo_data.clone())
             .app_data(driver_svc_data.clone())
             .app_data(vehicle_svc_data.clone())
+            .app_data(trip_svc_data.clone())
+            .app_data(finance_svc_data.clone())
             .route("/health", web::get().to(health_check))
             .service(
                 web::scope("/api/v1")

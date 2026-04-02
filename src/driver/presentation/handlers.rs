@@ -6,7 +6,7 @@ use crate::auth::presentation::handlers::require_role;
 use crate::common::{error::AppError, response::ApiResponse, types::{CurrentUser, Role}};
 use crate::driver::application::service::DriverService;
 use crate::driver::presentation::dto::{
-    CreateDriverRequest, DriverEditResponse, DriverResponse, UpdateDriverRequest,
+    CreateDriverRequest, DriverEditResponse, DriverResponse, SetSelfEntryRequest, UpdateDriverRequest,
 };
 
 pub async fn list_drivers(
@@ -72,6 +72,17 @@ pub async fn activate_driver(
     require_role(&user, &[Role::SuperAdmin])?;
     let role = user.role.clone();
     svc.activate(user.id, &role, path.into_inner()).await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(())))
+}
+
+pub async fn set_self_entry(
+    user: CurrentUser,
+    svc: web::Data<Arc<DriverService>>,
+    path: web::Path<Uuid>,
+    body: web::Json<SetSelfEntryRequest>,
+) -> Result<HttpResponse, AppError> {
+    require_role(&user, &[Role::SuperAdmin])?;
+    svc.repo.set_self_entry(path.into_inner(), body.enabled).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(())))
 }
 

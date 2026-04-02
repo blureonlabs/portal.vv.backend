@@ -13,6 +13,7 @@ pub struct Driver {
     pub nationality: String,
     pub salary_type: SalaryType,
     pub is_active: bool,
+    pub self_entry_enabled: bool,
     pub created_at: DateTime<Utc>,
 }
 

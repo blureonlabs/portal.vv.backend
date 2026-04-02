@@ -27,6 +27,7 @@ pub struct DriverResponse {
     pub nationality: String,
     pub salary_type: SalaryType,
     pub is_active: bool,
+    pub self_entry_enabled: bool,
     pub created_at: DateTime<Utc>,
 }
 
@@ -40,9 +41,15 @@ impl From<Driver> for DriverResponse {
             nationality: d.nationality,
             salary_type: d.salary_type,
             is_active: d.is_active,
+            self_entry_enabled: d.self_entry_enabled,
             created_at: d.created_at,
         }
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SetSelfEntryRequest {
+    pub enabled: bool,
 }
 
 #[derive(Debug, Serialize)]

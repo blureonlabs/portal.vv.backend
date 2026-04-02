@@ -24,7 +24,7 @@ impl DriverRepository for PgDriverRepository {
             Driver,
             r#"SELECT d.id, d.profile_id, p.full_name, p.email,
                       d.nationality, d.salary_type as "salary_type: SalaryType",
-                      d.is_active, d.created_at
+                      d.is_active, d.self_entry_enabled, d.created_at
                FROM drivers d
                JOIN profiles p ON p.id = d.profile_id
                ORDER BY p.full_name"#
@@ -39,7 +39,7 @@ impl DriverRepository for PgDriverRepository {
             Driver,
             r#"SELECT d.id, d.profile_id, p.full_name, p.email,
                       d.nationality, d.salary_type as "salary_type: SalaryType",
-                      d.is_active, d.created_at
+                      d.is_active, d.self_entry_enabled, d.created_at
                FROM drivers d
                JOIN profiles p ON p.id = d.profile_id
                WHERE d.id = $1"#,
@@ -55,7 +55,7 @@ impl DriverRepository for PgDriverRepository {
             Driver,
             r#"SELECT d.id, d.profile_id, p.full_name, p.email,
                       d.nationality, d.salary_type as "salary_type: SalaryType",
-                      d.is_active, d.created_at
+                      d.is_active, d.self_entry_enabled, d.created_at
                FROM drivers d
                JOIN profiles p ON p.id = d.profile_id
                WHERE d.profile_id = $1"#,
@@ -72,11 +72,11 @@ impl DriverRepository for PgDriverRepository {
             r#"WITH ins AS (
                 INSERT INTO drivers (profile_id, nationality, salary_type)
                 VALUES ($1, $2, $3)
-                RETURNING id, profile_id, nationality, salary_type, is_active, created_at
+                RETURNING id, profile_id, nationality, salary_type, is_active, self_entry_enabled, created_at
                )
                SELECT ins.id, ins.profile_id, p.full_name, p.email,
                       ins.nationality, ins.salary_type as "salary_type: SalaryType",
-                      ins.is_active, ins.created_at
+                      ins.is_active, ins.self_entry_enabled, ins.created_at
                FROM ins JOIN profiles p ON p.id = ins.profile_id"#,
             profile_id,
             nationality,
@@ -93,11 +93,11 @@ impl DriverRepository for PgDriverRepository {
             r#"WITH upd AS (
                 UPDATE drivers SET nationality = $2, salary_type = $3, updated_at = NOW()
                 WHERE id = $1
-                RETURNING id, profile_id, nationality, salary_type, is_active, created_at
+                RETURNING id, profile_id, nationality, salary_type, is_active, self_entry_enabled, created_at
                )
                SELECT upd.id, upd.profile_id, p.full_name, p.email,
                       upd.nationality, upd.salary_type as "salary_type: SalaryType",
-                      upd.is_active, upd.created_at
+                      upd.is_active, upd.self_entry_enabled, upd.created_at
                FROM upd JOIN profiles p ON p.id = upd.profile_id"#,
             id,
             nationality,
@@ -147,5 +147,15 @@ impl DriverRepository for PgDriverRepository {
         .fetch_all(&self.pool)
         .await?;
         Ok(rows)
+    }
+
+    async fn set_self_entry(&self, id: Uuid, enabled: bool) -> Result<(), AppError> {
+        sqlx::query!(
+            "UPDATE drivers SET self_entry_enabled = $1, updated_at = NOW() WHERE id = $2",
+            enabled, id
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 }
