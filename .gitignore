@@ -3,3 +3,4 @@
 *.pdb
 sqlx-data.json
 .DS_Store
+render.env
