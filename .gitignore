@@ -2,3 +2,4 @@
 .env
 *.pdb
 sqlx-data.json
+.DS_Store
