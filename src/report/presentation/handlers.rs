@@ -6,8 +6,8 @@ use crate::auth::presentation::handlers::require_role;
 use crate::common::{error::AppError, response::ApiResponse, types::{CurrentUser, Role}};
 use crate::report::application::service::ReportService;
 use super::dto::{
-    driver_summary_csv, finance_summary_csv, trip_detail_csv, DriverSummaryResponse,
-    FinanceSummaryResponse, ReportQuery, TripDetailResponse,
+    driver_summary_csv, finance_summary_csv, trip_detail_csv, DashboardKpisResponse,
+    DriverSummaryResponse, FinanceSummaryResponse, ReportQuery, TripDetailResponse,
 };
 
 fn csv_response(content: String, filename: &str) -> HttpResponse {
@@ -66,4 +66,13 @@ pub async fn finance_summary(
         return Ok(csv_response(finance_summary_csv(&resp), "finance_summary.csv"));
     }
     Ok(HttpResponse::Ok().json(ApiResponse::ok(resp)))
+}
+
+pub async fn dashboard(
+    user: CurrentUser,
+    svc: web::Data<Arc<ReportService>>,
+) -> Result<HttpResponse, AppError> {
+    require_role(&user, &[Role::SuperAdmin, Role::Accountant, Role::Hr])?;
+    let kpis = svc.dashboard().await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(DashboardKpisResponse::from(kpis))))
 }

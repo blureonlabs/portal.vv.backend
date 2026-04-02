@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::report::domain::entity::{DriverSummaryRow, FinanceReport, TripDetailRow};
+use crate::report::domain::entity::{DashboardKpis, DriverSummaryRow, FinanceReport, TripDetailRow};
 
 #[derive(Debug, Deserialize)]
 pub struct ReportQuery {
@@ -156,4 +156,72 @@ pub fn finance_summary_csv(r: &FinanceSummaryResponse) -> String {
     out.push_str(&format!("total_handovers,{}\n", r.total_handovers));
     out.push_str(&format!("net_aed,{}\n", r.net_aed));
     out
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+pub struct InsuranceAlertResponse {
+    pub vehicle_id: Uuid,
+    pub plate_number: String,
+    pub insurance_expiry: NaiveDate,
+    pub days_left: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DriverPerfResponse {
+    pub driver_id: Uuid,
+    pub driver_name: String,
+    pub trips_count: i64,
+    pub revenue_aed: Decimal,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DayRevenueResponse {
+    pub date: NaiveDate,
+    pub revenue_aed: Decimal,
+    pub trips_count: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DashboardKpisResponse {
+    pub revenue_mtd: Decimal,
+    pub trips_mtd: i64,
+    pub active_drivers: i64,
+    pub active_vehicles: i64,
+    pub pending_advances: i64,
+    pub pending_leave: i64,
+    pub insurance_expiring_soon: Vec<InsuranceAlertResponse>,
+    pub top_drivers: Vec<DriverPerfResponse>,
+    pub revenue_trend: Vec<DayRevenueResponse>,
+}
+
+impl From<DashboardKpis> for DashboardKpisResponse {
+    fn from(d: DashboardKpis) -> Self {
+        Self {
+            revenue_mtd: d.revenue_mtd,
+            trips_mtd: d.trips_mtd,
+            active_drivers: d.active_drivers,
+            active_vehicles: d.active_vehicles,
+            pending_advances: d.pending_advances,
+            pending_leave: d.pending_leave,
+            insurance_expiring_soon: d.insurance_expiring_soon.into_iter().map(|a| InsuranceAlertResponse {
+                vehicle_id: a.vehicle_id,
+                plate_number: a.plate_number,
+                insurance_expiry: a.insurance_expiry,
+                days_left: a.days_left,
+            }).collect(),
+            top_drivers: d.top_drivers.into_iter().map(|r| DriverPerfResponse {
+                driver_id: r.driver_id,
+                driver_name: r.driver_name,
+                trips_count: r.trips_count,
+                revenue_aed: r.revenue_aed,
+            }).collect(),
+            revenue_trend: d.revenue_trend.into_iter().map(|r| DayRevenueResponse {
+                date: r.date,
+                revenue_aed: r.revenue_aed,
+                trips_count: r.trips_count,
+            }).collect(),
+        }
+    }
 }
