@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: fms-backend
+    runtime: rust
+    buildCommand: cargo build --release
+    startCommand: ./target/release/fms
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: fms-files
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        value: noreply@notifications.voiturevoyages.com
+      - key: FRONTEND_URL
+        value: https://portal.voiturevoyages.com
+      - key: RUST_LOG
+        value: fms=info,actix_web=info
