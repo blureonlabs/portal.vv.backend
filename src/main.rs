@@ -39,6 +39,16 @@ use notification::{
     application::service::NotificationService,
 };
 use audit::application::service::AuditService;
+use driver::{
+    domain::repository::DriverRepository,
+    infrastructure::PgDriverRepository,
+    application::service::DriverService,
+};
+use vehicle::{
+    domain::repository::VehicleRepository,
+    infrastructure::PgVehicleRepository,
+    application::service::VehicleService,
+};
 
 #[derive(Parser)]
 #[command(name = "fms", about = "Fleet Management System — UAE Operations")]
@@ -105,11 +115,19 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
         Arc::clone(&audit_svc),
     ));
 
+    let driver_repo: Arc<dyn DriverRepository> = Arc::new(PgDriverRepository::new(db.pg_pool().clone()));
+    let driver_svc = Arc::new(DriverService::new(Arc::clone(&driver_repo), Arc::clone(&audit_svc)));
+
+    let vehicle_repo: Arc<dyn VehicleRepository> = Arc::new(PgVehicleRepository::new(db.pg_pool().clone()));
+    let vehicle_svc = Arc::new(VehicleService::new(Arc::clone(&vehicle_repo), Arc::clone(&audit_svc)));
+
     // ── Clone for move into closure ───────────────────────────────────────────
     let config_data = web::Data::new((*config).clone());
     let db_data = web::Data::new(db);
     let auth_svc_data = web::Data::new(Arc::clone(&auth_svc));
     let auth_repo_data = web::Data::new(Arc::clone(&auth_repo));
+    let driver_svc_data = web::Data::new(Arc::clone(&driver_svc));
+    let vehicle_svc_data = web::Data::new(Arc::clone(&vehicle_svc));
 
     HttpServer::new(move || {
         let cors = actix_cors::Cors::default()
@@ -125,6 +143,8 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
             .app_data(db_data.clone())
             .app_data(auth_svc_data.clone())
             .app_data(auth_repo_data.clone())
+            .app_data(driver_svc_data.clone())
+            .app_data(vehicle_svc_data.clone())
             .route("/health", web::get().to(health_check))
             .service(
                 web::scope("/api/v1")
