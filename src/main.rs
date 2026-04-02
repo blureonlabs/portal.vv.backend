@@ -57,6 +57,23 @@ use finance::{
     infrastructure::PgFinanceRepository,
     application::service::FinanceService,
 };
+use advance::{
+    infrastructure::PgAdvanceRepository,
+    application::service::AdvanceService,
+};
+use hr::{
+    infrastructure::PgHrRepository,
+    application::service::HrService,
+};
+use invoice::{
+    infrastructure::{PgInvoiceRepository, PdfService},
+    application::service::InvoiceService,
+};
+use settings::{
+    infrastructure::PgSettingsRepository,
+    application::service::SettingsService,
+};
+use report::application::service::ReportService;
 
 #[derive(Parser)]
 #[command(name = "fms", about = "Fleet Management System — UAE Operations")]
@@ -135,6 +152,34 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let finance_repo = Arc::new(PgFinanceRepository::new(db.pg_pool().clone()));
     let finance_svc = Arc::new(FinanceService::new(finance_repo));
 
+    let advance_repo = Arc::new(PgAdvanceRepository::new(db.pg_pool().clone()));
+    let advance_svc = Arc::new(AdvanceService::new(advance_repo));
+
+    let hr_repo = Arc::new(PgHrRepository::new(db.pg_pool().clone()));
+    let hr_svc = Arc::new(HrService::new(hr_repo));
+
+    let invoice_repo = Arc::new(PgInvoiceRepository::new(db.pg_pool().clone()));
+    let pdf_svc = Arc::new(PdfService::new(&config));
+
+    let company_name = sqlx::query!("SELECT value FROM settings WHERE key = 'company_name'")
+        .fetch_optional(db.pg_pool())
+        .await?
+        .map(|r| r.value)
+        .unwrap_or_else(|| "Fleet Management Co.".to_string());
+    let company_address = sqlx::query!("SELECT value FROM settings WHERE key = 'company_address'")
+        .fetch_optional(db.pg_pool())
+        .await?
+        .map(|r| r.value)
+        .unwrap_or_else(|| "Dubai, UAE".to_string());
+
+    let invoice_svc = Arc::new(InvoiceService::new(invoice_repo, pdf_svc, company_name, company_address));
+
+    let settings_repo: Arc<dyn settings::domain::repository::SettingsRepository> =
+        Arc::new(PgSettingsRepository::new(db.pg_pool().clone()));
+    let settings_svc = Arc::new(SettingsService::new(Arc::clone(&settings_repo)));
+
+    let report_svc = Arc::new(ReportService::new(db.pg_pool().clone()));
+
     // ── Clone for move into closure ───────────────────────────────────────────
     let config_data = web::Data::new((*config).clone());
     let db_data = web::Data::new(db);
@@ -144,6 +189,12 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let vehicle_svc_data = web::Data::new(Arc::clone(&vehicle_svc));
     let trip_svc_data = web::Data::new(Arc::clone(&trip_svc));
     let finance_svc_data = web::Data::new(Arc::clone(&finance_svc));
+    let advance_svc_data = web::Data::new(Arc::clone(&advance_svc));
+    let hr_svc_data = web::Data::new(Arc::clone(&hr_svc));
+    let invoice_svc_data = web::Data::new(Arc::clone(&invoice_svc));
+    let settings_svc_data = web::Data::new(Arc::clone(&settings_svc));
+    let audit_svc_data = web::Data::new(Arc::clone(&audit_svc));
+    let report_svc_data = web::Data::new(Arc::clone(&report_svc));
 
     HttpServer::new(move || {
         let cors = actix_cors::Cors::default()
@@ -163,6 +214,12 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
             .app_data(vehicle_svc_data.clone())
             .app_data(trip_svc_data.clone())
             .app_data(finance_svc_data.clone())
+            .app_data(advance_svc_data.clone())
+            .app_data(hr_svc_data.clone())
+            .app_data(invoice_svc_data.clone())
+            .app_data(settings_svc_data.clone())
+            .app_data(audit_svc_data.clone())
+            .app_data(report_svc_data.clone())
             .route("/health", web::get().to(health_check))
             .service(
                 web::scope("/api/v1")

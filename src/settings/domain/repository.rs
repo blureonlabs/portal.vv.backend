@@ -1,5 +1,12 @@
 use async_trait::async_trait;
+use uuid::Uuid;
 
-// TODO: Sprint — settings repository trait
+use crate::common::error::AppError;
+use super::entity::Setting;
+
 #[async_trait]
-pub trait Repository: Send + Sync {}
+pub trait SettingsRepository: Send + Sync {
+    async fn list(&self) -> Result<Vec<Setting>, AppError>;
+    async fn get(&self, key: &str) -> Result<Option<Setting>, AppError>;
+    async fn upsert(&self, key: &str, value: &str, updated_by: Uuid) -> Result<Setting, AppError>;
+}

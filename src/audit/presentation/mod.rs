@@ -4,5 +4,8 @@ pub mod handlers;
 use actix_web::web;
 
 pub fn routes(cfg: &mut web::ServiceConfig) {
-    // TODO: Sprint — audit routes
+    cfg.service(
+        web::scope("/audit")
+            .route("", web::get().to(handlers::list_audit)),
+    );
 }
