@@ -25,6 +25,7 @@ mod report;
 mod settings;
 mod audit;
 mod uber;
+mod portal;
 
 use config::AppConfig;
 use database::infrastructure::PgDatabase;
@@ -61,6 +62,11 @@ use advance::{
     infrastructure::PgAdvanceRepository,
     application::service::AdvanceService,
 };
+use salary::{
+    infrastructure::postgres::PgSalaryRepository,
+    application::service::SalaryService,
+};
+use common::ports::DeductionPort;
 use hr::{
     infrastructure::PgHrRepository,
     application::service::HrService,
@@ -153,7 +159,9 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let finance_svc = Arc::new(FinanceService::new(finance_repo));
 
     let advance_repo = Arc::new(PgAdvanceRepository::new(db.pg_pool().clone()));
-    let advance_svc = Arc::new(AdvanceService::new(advance_repo));
+    let advance_svc = Arc::new(AdvanceService::new(
+        Arc::clone(&advance_repo) as Arc<dyn advance::domain::repository::AdvanceRepository>
+    ));
 
     let hr_repo = Arc::new(PgHrRepository::new(db.pg_pool().clone()));
     let hr_svc = Arc::new(HrService::new(hr_repo));
@@ -180,6 +188,14 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
 
     let report_svc = Arc::new(ReportService::new(db.pg_pool().clone()));
 
+    let salary_repo = Arc::new(PgSalaryRepository::new(db.pg_pool().clone()));
+    let deduction_port: Arc<dyn DeductionPort> = Arc::clone(&advance_repo) as Arc<dyn DeductionPort>;
+    let salary_svc = Arc::new(SalaryService::new(
+        salary_repo,
+        Arc::clone(&settings_repo),
+        deduction_port,
+    ));
+
     // ── Clone for move into closure ───────────────────────────────────────────
     let config_data = web::Data::new((*config).clone());
     let db_data = web::Data::new(db);
@@ -195,6 +211,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let settings_svc_data = web::Data::new(Arc::clone(&settings_svc));
     let audit_svc_data = web::Data::new(Arc::clone(&audit_svc));
     let report_svc_data = web::Data::new(Arc::clone(&report_svc));
+    let salary_svc_data = web::Data::new(Arc::clone(&salary_svc));
 
     HttpServer::new(move || {
         let cors = actix_cors::Cors::default()
@@ -220,6 +237,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
             .app_data(settings_svc_data.clone())
             .app_data(audit_svc_data.clone())
             .app_data(report_svc_data.clone())
+            .app_data(salary_svc_data.clone())
             .route("/health", web::get().to(health_check))
             .service(
                 web::scope("/api/v1")
@@ -236,6 +254,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
                     .configure(settings::routes)
                     .configure(audit::routes)
                     .configure(uber::routes)
+                    .configure(portal::routes)
             )
     })
     .bind(&addr)?
