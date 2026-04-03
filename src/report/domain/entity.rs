@@ -23,6 +23,7 @@ pub struct InsuranceAlert {
     pub plate_number: String,
     pub insurance_expiry: NaiveDate,
     pub days_left: i64,
+    pub is_expired: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -78,4 +79,49 @@ pub struct FinanceReport {
     pub total_expenses: Decimal,
     pub total_handovers: Decimal,
     pub net_aed: Decimal,
+}
+
+// ── Advance Report ────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone)]
+pub struct AdvanceReportRow {
+    pub driver_name: String,
+    pub total_requested: Decimal,
+    pub total_approved: Decimal,
+    pub total_paid: Decimal,
+    pub outstanding_balance: Decimal,
+}
+
+// ── Cash Flow Report ──────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone)]
+pub struct CashFlowRow {
+    pub driver_name: String,
+    pub total_cash_received: Decimal,
+    pub total_cash_submitted: Decimal,
+    pub shortfall: Decimal,
+}
+
+// ── Leave Report ──────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone)]
+pub struct LeaveReportRow {
+    pub driver_name: String,
+    pub total_leave_days: i64,
+    pub total_permissions: i64,
+    pub pending_count: i64,
+    pub approved_count: i64,
+    pub rejected_count: i64,
+}
+
+// ── Salary Summary Report ─────────────────────────────────────────────────────
+
+#[derive(Debug, Clone)]
+pub struct SalaryReportRow {
+    pub driver_name: String,
+    pub period: String,
+    pub salary_type: String,
+    pub gross: Decimal,
+    pub deductions: Decimal,
+    pub net_payable: Decimal,
 }

@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT email FROM profiles WHERE role IN ('super_admin', 'accountant')",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ec2534b8e64fb479c16e44d3232fdab5ff1f6efb446ef8b5f06b69f44f9340d3"
+}

@@ -17,4 +17,5 @@ pub trait AuthRepository: Send + Sync {
     async fn list_invites(&self) -> Result<Vec<Invite>, AppError>;
     async fn update_invite_status(&self, id: Uuid, status: InviteStatus) -> Result<(), AppError>;
     async fn update_invite_token(&self, id: Uuid, token_hash: &str) -> Result<(), AppError>;
+    async fn update_avatar(&self, id: Uuid, avatar_url: &str) -> Result<(), AppError>;
 }

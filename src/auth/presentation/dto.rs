@@ -26,6 +26,11 @@ pub struct ForgotPasswordRequest {
     pub email: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateAvatarRequest {
+    pub avatar_url: String,
+}
+
 // ---------- Responses ----------
 
 #[derive(Debug, Serialize)]
@@ -58,6 +63,7 @@ pub struct UserResponse {
     pub full_name: String,
     pub role: Role,
     pub is_active: bool,
+    pub avatar_url: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -69,6 +75,7 @@ impl From<Profile> for UserResponse {
             full_name: p.full_name,
             role: p.role,
             is_active: p.is_active,
+            avatar_url: p.avatar_url,
             created_at: p.created_at,
         }
     }
@@ -81,6 +88,7 @@ pub struct MeResponse {
     pub full_name: String,
     pub role: Role,
     pub is_active: bool,
+    pub avatar_url: Option<String>,
 }
 
 impl From<Profile> for MeResponse {
@@ -91,6 +99,7 @@ impl From<Profile> for MeResponse {
             full_name: p.full_name,
             role: p.role,
             is_active: p.is_active,
+            avatar_url: p.avatar_url,
         }
     }
 }

@@ -75,6 +75,20 @@ pub async fn delete_trip(
     Ok(HttpResponse::Ok().json(ApiResponse::ok(())))
 }
 
+pub async fn csv_template(
+    user: CurrentUser,
+) -> Result<HttpResponse, AppError> {
+    match user.role {
+        Role::SuperAdmin | Role::Accountant => {}
+        _ => return Err(AppError::Forbidden("Only super_admin or accountant can download the CSV template".into())),
+    }
+    let csv = "driver_id,trip_date,cash_aed,card_aed,other_aed,notes\n";
+    Ok(HttpResponse::Ok()
+        .content_type("text/csv")
+        .append_header(("Content-Disposition", "attachment; filename=\"trips_template.csv\""))
+        .body(csv))
+}
+
 pub async fn csv_preview(
     user: CurrentUser,
     svc: web::Data<Arc<TripService>>,

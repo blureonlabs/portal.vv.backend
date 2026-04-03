@@ -9,6 +9,10 @@ pub fn routes(cfg: &mut web::ServiceConfig) {
            web::scope("/reports")
                .route("/drivers", web::get().to(handlers::driver_summary))
                .route("/trips", web::get().to(handlers::trip_detail))
-               .route("/finance", web::get().to(handlers::finance_summary)),
+               .route("/finance", web::get().to(handlers::finance_summary))
+               .route("/advances", web::get().to(handlers::advance_report))
+               .route("/cash-flow", web::get().to(handlers::cash_flow_report))
+               .route("/leave", web::get().to(handlers::leave_report))
+               .route("/salary", web::get().to(handlers::salary_report)),
        );
 }

@@ -10,6 +10,7 @@ pub struct Profile {
     pub full_name: String,
     pub email: String,
     pub is_active: bool,
+    pub avatar_url: Option<String>,
     pub invited_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
 }

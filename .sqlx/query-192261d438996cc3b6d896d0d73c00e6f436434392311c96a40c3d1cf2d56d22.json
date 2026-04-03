@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, role as \"role: Role\", full_name, email, is_active, invited_by, created_at\n               FROM profiles ORDER BY created_at DESC",
+  "query": "SELECT id, role as \"role: Role\", full_name, email, is_active, avatar_url, invited_by, created_at\n               FROM profiles WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -43,17 +43,24 @@
       },
       {
         "ordinal": 5,
+        "name": "avatar_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
         "name": "invited_by",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
@@ -62,8 +69,9 @@
       false,
       false,
       true,
+      true,
       false
     ]
   },
-  "hash": "8f88123b99a90962081747cb2d953cf2570b16db2af8512812d3686d8c3b8d42"
+  "hash": "192261d438996cc3b6d896d0d73c00e6f436434392311c96a40c3d1cf2d56d22"
 }

@@ -192,7 +192,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
 
     let settings_repo: Arc<dyn settings::domain::repository::SettingsRepository> =
         Arc::new(PgSettingsRepository::new(db.pg_pool().clone()));
-    let settings_svc = Arc::new(SettingsService::new(Arc::clone(&settings_repo)));
+    let settings_svc = Arc::new(SettingsService::new(Arc::clone(&settings_repo), Arc::clone(&audit_svc)));
 
     let report_svc = Arc::new(ReportService::new(db.pg_pool().clone()));
 

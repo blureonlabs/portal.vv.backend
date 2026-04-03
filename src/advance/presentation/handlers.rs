@@ -32,6 +32,19 @@ async fn fetch_driver_email(pool: &sqlx::PgPool, driver_id: Uuid) -> Option<Stri
     .map(|r| r.email)
 }
 
+/// Fetch emails of all super_admin and accountant profiles.
+async fn fetch_accountant_emails(pool: &sqlx::PgPool) -> Vec<String> {
+    sqlx::query!(
+        "SELECT email FROM profiles WHERE role IN ('super_admin', 'accountant')"
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default()
+    .into_iter()
+    .map(|r| r.email)
+    .collect()
+}
+
 pub async fn list_advances(
     user: CurrentUser,
     svc: web::Data<Arc<AdvanceService>>,
@@ -48,6 +61,7 @@ pub async fn list_advances(
 pub async fn request_advance(
     user: CurrentUser,
     svc: web::Data<Arc<AdvanceService>>,
+    notification_svc: web::Data<Arc<NotificationService>>,
     db: web::Data<crate::database::infrastructure::PgDatabase>,
     body: web::Json<RequestAdvanceBody>,
 ) -> Result<HttpResponse, AppError> {
@@ -57,6 +71,18 @@ pub async fn request_advance(
     let advance = svc
         .request(user.id, &user.role, actor_driver_id, body.driver_id, body.amount_aed, body.reason)
         .await?;
+
+    // Notify all accountants / super admins about the new advance request
+    let amount = advance.amount_aed.to_string();
+    let driver_name = advance.driver_name.clone();
+    let emails = fetch_accountant_emails(db.pg_pool()).await;
+    for email in emails {
+        notification_svc
+            .send_advance_request_notification(&email, &driver_name, &amount)
+            .await
+            .ok();
+    }
+
     Ok(HttpResponse::Created().json(ApiResponse::ok(AdvanceResponse::from(advance))))
 }
 

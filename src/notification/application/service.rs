@@ -99,6 +99,31 @@ impl NotificationService {
         self.resend.send(to, &subject, &html).await
     }
 
+    pub async fn send_advance_request_notification(
+        &self,
+        to: &str,
+        driver_name: &str,
+        amount: &str,
+    ) -> Result<(), AppError> {
+        let subject = "New Advance Request — Action Required";
+        let html = format!(
+            r#"<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+  <div style="background:#161f3f;padding:24px 32px;border-radius:8px 8px 0 0">
+    <h1 style="color:#fff;margin:0;font-size:20px">Voiture Voyages Fleet Management</h1>
+  </div>
+  <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+    <p style="margin:0 0 16px">A new advance request requires your attention.</p>
+    <p style="margin:0 0 16px"><strong>Driver:</strong> {driver_name}<br>
+       <strong>Amount:</strong> AED {amount}</p>
+    <p style="margin:0 0 16px">Please log in to the Fleet Management System to review and action this request.</p>
+    <p style="margin:24px 0 0;color:#6b7280;font-size:13px">This is an automated notification.</p>
+  </div>
+  <p style="color:#9ca3af;font-size:11px;text-align:center;margin:16px 0">© Voiture Voyages — Fleet Management System</p>
+</div>"#
+        );
+        self.resend.send(to, subject, &html).await
+    }
+
     pub async fn send_leave_status_email(
         &self,
         to: &str,

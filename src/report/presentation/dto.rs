@@ -3,7 +3,10 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::report::domain::entity::{DashboardKpis, DriverSummaryRow, FinanceReport, TripDetailRow};
+use crate::report::domain::entity::{
+    AdvanceReportRow, CashFlowRow, DashboardKpis, DriverSummaryRow, FinanceReport,
+    LeaveReportRow, SalaryReportRow, TripDetailRow,
+};
 
 #[derive(Debug, Deserialize)]
 pub struct ReportQuery {
@@ -166,6 +169,7 @@ pub struct InsuranceAlertResponse {
     pub plate_number: String,
     pub insurance_expiry: NaiveDate,
     pub days_left: i64,
+    pub is_expired: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -214,6 +218,7 @@ impl From<DashboardKpis> for DashboardKpisResponse {
                 plate_number: a.plate_number,
                 insurance_expiry: a.insurance_expiry,
                 days_left: a.days_left,
+                is_expired: a.is_expired,
             }).collect(),
             top_drivers: d.top_drivers.into_iter().map(|r| DriverPerfResponse {
                 driver_id: r.driver_id,
@@ -228,4 +233,143 @@ impl From<DashboardKpis> for DashboardKpisResponse {
             }).collect(),
         }
     }
+}
+
+// ── Advance Report ────────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+pub struct AdvanceReportResponse {
+    pub driver_name: String,
+    pub total_requested: Decimal,
+    pub total_approved: Decimal,
+    pub total_paid: Decimal,
+    pub outstanding_balance: Decimal,
+}
+
+impl From<AdvanceReportRow> for AdvanceReportResponse {
+    fn from(r: AdvanceReportRow) -> Self {
+        Self {
+            driver_name: r.driver_name,
+            total_requested: r.total_requested,
+            total_approved: r.total_approved,
+            total_paid: r.total_paid,
+            outstanding_balance: r.outstanding_balance,
+        }
+    }
+}
+
+pub fn advance_report_csv(rows: &[AdvanceReportResponse]) -> String {
+    let mut out = String::from("driver_name,total_requested,total_approved,total_paid,outstanding_balance\n");
+    for r in rows {
+        out.push_str(&format!(
+            "{},{},{},{},{}\n",
+            r.driver_name, r.total_requested, r.total_approved, r.total_paid, r.outstanding_balance
+        ));
+    }
+    out
+}
+
+// ── Cash Flow Report ──────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+pub struct CashFlowResponse {
+    pub driver_name: String,
+    pub total_cash_received: Decimal,
+    pub total_cash_submitted: Decimal,
+    pub shortfall: Decimal,
+}
+
+impl From<CashFlowRow> for CashFlowResponse {
+    fn from(r: CashFlowRow) -> Self {
+        Self {
+            driver_name: r.driver_name,
+            total_cash_received: r.total_cash_received,
+            total_cash_submitted: r.total_cash_submitted,
+            shortfall: r.shortfall,
+        }
+    }
+}
+
+pub fn cash_flow_csv(rows: &[CashFlowResponse]) -> String {
+    let mut out = String::from("driver_name,total_cash_received,total_cash_submitted,shortfall\n");
+    for r in rows {
+        out.push_str(&format!(
+            "{},{},{},{}\n",
+            r.driver_name, r.total_cash_received, r.total_cash_submitted, r.shortfall
+        ));
+    }
+    out
+}
+
+// ── Leave Report ──────────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+pub struct LeaveReportResponse {
+    pub driver_name: String,
+    pub total_leave_days: i64,
+    pub total_permissions: i64,
+    pub pending_count: i64,
+    pub approved_count: i64,
+    pub rejected_count: i64,
+}
+
+impl From<LeaveReportRow> for LeaveReportResponse {
+    fn from(r: LeaveReportRow) -> Self {
+        Self {
+            driver_name: r.driver_name,
+            total_leave_days: r.total_leave_days,
+            total_permissions: r.total_permissions,
+            pending_count: r.pending_count,
+            approved_count: r.approved_count,
+            rejected_count: r.rejected_count,
+        }
+    }
+}
+
+pub fn leave_report_csv(rows: &[LeaveReportResponse]) -> String {
+    let mut out = String::from("driver_name,total_leave_days,total_permissions,pending_count,approved_count,rejected_count\n");
+    for r in rows {
+        out.push_str(&format!(
+            "{},{},{},{},{},{}\n",
+            r.driver_name, r.total_leave_days, r.total_permissions,
+            r.pending_count, r.approved_count, r.rejected_count
+        ));
+    }
+    out
+}
+
+// ── Salary Summary Report ─────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+pub struct SalaryReportResponse {
+    pub driver_name: String,
+    pub period: String,
+    pub salary_type: String,
+    pub gross: Decimal,
+    pub deductions: Decimal,
+    pub net_payable: Decimal,
+}
+
+impl From<SalaryReportRow> for SalaryReportResponse {
+    fn from(r: SalaryReportRow) -> Self {
+        Self {
+            driver_name: r.driver_name,
+            period: r.period,
+            salary_type: r.salary_type,
+            gross: r.gross,
+            deductions: r.deductions,
+            net_payable: r.net_payable,
+        }
+    }
+}
+
+pub fn salary_report_csv(rows: &[SalaryReportResponse]) -> String {
+    let mut out = String::from("driver_name,period,salary_type,gross,deductions,net_payable\n");
+    for r in rows {
+        out.push_str(&format!(
+            "{},{},{},{},{},{}\n",
+            r.driver_name, r.period, r.salary_type, r.gross, r.deductions, r.net_payable
+        ));
+    }
+    out
 }

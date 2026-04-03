@@ -7,6 +7,7 @@ pub fn routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/auth")
             .route("/me", web::get().to(handlers::me))
+            .route("/me/avatar", web::put().to(handlers::update_avatar))
             .route("/accept-invite", web::post().to(handlers::accept_invite))
             .route("/forgot-password", web::post().to(handlers::forgot_password))
     )

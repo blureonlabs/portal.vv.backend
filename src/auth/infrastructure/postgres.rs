@@ -22,7 +22,7 @@ impl AuthRepository for PgAuthRepository {
     async fn find_profile_by_id(&self, id: Uuid) -> Result<Option<Profile>, AppError> {
         let profile = sqlx::query_as!(
             Profile,
-            r#"SELECT id, role as "role: Role", full_name, email, is_active, invited_by, created_at
+            r#"SELECT id, role as "role: Role", full_name, email, is_active, avatar_url, invited_by, created_at
                FROM profiles WHERE id = $1"#,
             id
         )
@@ -34,7 +34,7 @@ impl AuthRepository for PgAuthRepository {
     async fn find_profile_by_email(&self, email: &str) -> Result<Option<Profile>, AppError> {
         let profile = sqlx::query_as!(
             Profile,
-            r#"SELECT id, role as "role: Role", full_name, email, is_active, invited_by, created_at
+            r#"SELECT id, role as "role: Role", full_name, email, is_active, avatar_url, invited_by, created_at
                FROM profiles WHERE email = $1"#,
             email
         )
@@ -46,7 +46,7 @@ impl AuthRepository for PgAuthRepository {
     async fn list_profiles(&self) -> Result<Vec<Profile>, AppError> {
         let profiles = sqlx::query_as!(
             Profile,
-            r#"SELECT id, role as "role: Role", full_name, email, is_active, invited_by, created_at
+            r#"SELECT id, role as "role: Role", full_name, email, is_active, avatar_url, invited_by, created_at
                FROM profiles ORDER BY created_at DESC"#
         )
         .fetch_all(&self.pool)
@@ -59,7 +59,7 @@ impl AuthRepository for PgAuthRepository {
             Profile,
             r#"INSERT INTO profiles (id, role, full_name, email, invited_by)
                VALUES ($1, $2, $3, $4, $5)
-               RETURNING id, role as "role: Role", full_name, email, is_active, invited_by, created_at"#,
+               RETURNING id, role as "role: Role", full_name, email, is_active, avatar_url, invited_by, created_at"#,
             id,
             role as Role,
             full_name,
@@ -156,6 +156,17 @@ impl AuthRepository for PgAuthRepository {
             token_hash,
             expires_at,
             id
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn update_avatar(&self, id: Uuid, avatar_url: &str) -> Result<(), AppError> {
+        sqlx::query!(
+            "UPDATE profiles SET avatar_url = $2 WHERE id = $1",
+            id,
+            avatar_url,
         )
         .execute(&self.pool)
         .await?;

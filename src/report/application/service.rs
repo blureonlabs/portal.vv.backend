@@ -4,8 +4,8 @@ use uuid::Uuid;
 
 use crate::common::error::AppError;
 use crate::report::domain::entity::{
-    DashboardKpis, DayRevenue, DriverPerfRow, DriverSummaryRow,
-    FinanceReport, FinanceSummaryRow, InsuranceAlert, TripDetailRow,
+    AdvanceReportRow, CashFlowRow, DashboardKpis, DayRevenue, DriverPerfRow, DriverSummaryRow,
+    FinanceReport, FinanceSummaryRow, InsuranceAlert, LeaveReportRow, SalaryReportRow, TripDetailRow,
 };
 
 pub struct ReportService {
@@ -263,7 +263,7 @@ impl ReportService {
             sqlx::query_as::<_, InsRow>(
                 "SELECT id AS vehicle_id, plate_number, insurance_expiry \
                  FROM vehicles WHERE insurance_expiry IS NOT NULL \
-                   AND insurance_expiry BETWEEN $1 AND $1 + INTERVAL '30 days' \
+                   AND insurance_expiry <= $1 + INTERVAL '30 days' \
                  ORDER BY insurance_expiry"
             ).bind(today).fetch_all(pool),
 
@@ -288,7 +288,8 @@ impl ReportService {
 
         let insurance_expiring_soon = ins_rows.into_iter().map(|r| {
             let days_left = (r.insurance_expiry - today).num_days();
-            InsuranceAlert { vehicle_id: r.vehicle_id, plate_number: r.plate_number, insurance_expiry: r.insurance_expiry, days_left }
+            let is_expired = r.insurance_expiry < today;
+            InsuranceAlert { vehicle_id: r.vehicle_id, plate_number: r.plate_number, insurance_expiry: r.insurance_expiry, days_left, is_expired }
         }).collect();
 
         let top_drivers = top_rows.into_iter().map(|r| DriverPerfRow {
@@ -320,5 +321,211 @@ impl ReportService {
             top_drivers,
             revenue_trend,
         })
+    }
+
+    pub async fn advance_report(
+        &self,
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> Result<Vec<AdvanceReportRow>, AppError> {
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            driver_name: String,
+            total_requested: Option<Decimal>,
+            total_approved: Option<Decimal>,
+            total_paid: Option<Decimal>,
+        }
+
+        let rows = sqlx::query_as::<_, Row>(
+            r#"
+            SELECT
+                p.full_name AS driver_name,
+                COALESCE(SUM(a.amount_aed), 0) AS total_requested,
+                COALESCE(SUM(CASE WHEN a.status IN ('approved', 'paid') THEN a.amount_aed ELSE 0 END), 0) AS total_approved,
+                COALESCE(SUM(CASE WHEN a.status = 'paid' THEN a.amount_aed ELSE 0 END), 0) AS total_paid
+            FROM drivers d
+            JOIN profiles p ON p.id = d.profile_id
+            JOIN advances a ON a.driver_id = d.id
+            WHERE a.created_at::date BETWEEN $1 AND $2
+            GROUP BY p.full_name
+            ORDER BY p.full_name
+            "#,
+        )
+        .bind(from)
+        .bind(to)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                let requested = r.total_requested.unwrap_or(Decimal::ZERO);
+                let approved = r.total_approved.unwrap_or(Decimal::ZERO);
+                let paid = r.total_paid.unwrap_or(Decimal::ZERO);
+                AdvanceReportRow {
+                    driver_name: r.driver_name,
+                    total_requested: requested,
+                    total_approved: approved,
+                    total_paid: paid,
+                    outstanding_balance: approved - paid,
+                }
+            })
+            .collect())
+    }
+
+    pub async fn cash_flow_report(
+        &self,
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> Result<Vec<CashFlowRow>, AppError> {
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            driver_name: String,
+            total_cash_received: Option<Decimal>,
+            total_cash_submitted: Option<Decimal>,
+        }
+
+        let rows = sqlx::query_as::<_, Row>(
+            r#"
+            SELECT
+                p.full_name AS driver_name,
+                COALESCE(t.total_cash, 0) AS total_cash_received,
+                COALESCE(h.total_submitted, 0) AS total_cash_submitted
+            FROM drivers d
+            JOIN profiles p ON p.id = d.profile_id
+            LEFT JOIN (
+                SELECT driver_id, SUM(cash_aed) AS total_cash
+                FROM trips
+                WHERE trip_date BETWEEN $1 AND $2 AND is_deleted = false
+                GROUP BY driver_id
+            ) t ON t.driver_id = d.id
+            LEFT JOIN (
+                SELECT driver_id, SUM(amount_aed) AS total_submitted
+                FROM cash_handovers
+                WHERE submitted_at::date BETWEEN $1 AND $2
+                GROUP BY driver_id
+            ) h ON h.driver_id = d.id
+            WHERE t.driver_id IS NOT NULL OR h.driver_id IS NOT NULL
+            ORDER BY p.full_name
+            "#,
+        )
+        .bind(from)
+        .bind(to)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                let received = r.total_cash_received.unwrap_or(Decimal::ZERO);
+                let submitted = r.total_cash_submitted.unwrap_or(Decimal::ZERO);
+                CashFlowRow {
+                    driver_name: r.driver_name,
+                    total_cash_received: received,
+                    total_cash_submitted: submitted,
+                    shortfall: received - submitted,
+                }
+            })
+            .collect())
+    }
+
+    pub async fn leave_report(
+        &self,
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> Result<Vec<LeaveReportRow>, AppError> {
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            driver_name: String,
+            total_leave_days: Option<i64>,
+            total_permissions: Option<i64>,
+            pending_count: Option<i64>,
+            approved_count: Option<i64>,
+            rejected_count: Option<i64>,
+        }
+
+        let rows = sqlx::query_as::<_, Row>(
+            r#"
+            SELECT
+                p.full_name AS driver_name,
+                COALESCE(SUM(CASE WHEN lr.type = 'leave'
+                    THEN (lr.to_date - lr.from_date + 1) ELSE 0 END), 0) AS total_leave_days,
+                COALESCE(SUM(CASE WHEN lr.type = 'permission' THEN 1 ELSE 0 END), 0) AS total_permissions,
+                COALESCE(SUM(CASE WHEN lr.status = 'pending' THEN 1 ELSE 0 END), 0) AS pending_count,
+                COALESCE(SUM(CASE WHEN lr.status = 'approved' THEN 1 ELSE 0 END), 0) AS approved_count,
+                COALESCE(SUM(CASE WHEN lr.status = 'rejected' THEN 1 ELSE 0 END), 0) AS rejected_count
+            FROM drivers d
+            JOIN profiles p ON p.id = d.profile_id
+            JOIN leave_requests lr ON lr.driver_id = d.id
+            WHERE lr.from_date BETWEEN $1 AND $2
+            GROUP BY p.full_name
+            ORDER BY p.full_name
+            "#,
+        )
+        .bind(from)
+        .bind(to)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| LeaveReportRow {
+                driver_name: r.driver_name,
+                total_leave_days: r.total_leave_days.unwrap_or(0),
+                total_permissions: r.total_permissions.unwrap_or(0),
+                pending_count: r.pending_count.unwrap_or(0),
+                approved_count: r.approved_count.unwrap_or(0),
+                rejected_count: r.rejected_count.unwrap_or(0),
+            })
+            .collect())
+    }
+
+    pub async fn salary_report(
+        &self,
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> Result<Vec<SalaryReportRow>, AppError> {
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            driver_name: String,
+            period: String,
+            salary_type: String,
+            gross: Decimal,
+            deductions: Decimal,
+            net_payable: Decimal,
+        }
+
+        let rows = sqlx::query_as::<_, Row>(
+            r#"
+            SELECT
+                p.full_name AS driver_name,
+                s.period_month::text AS period,
+                s.salary_type_snapshot::text AS salary_type,
+                s.base_amount_aed AS gross,
+                s.advance_deduction_aed AS deductions,
+                s.net_payable_aed AS net_payable
+            FROM salaries s
+            JOIN drivers d ON d.id = s.driver_id
+            JOIN profiles p ON p.id = d.profile_id
+            WHERE s.period_month BETWEEN $1 AND $2
+            ORDER BY s.period_month DESC, p.full_name
+            "#,
+        )
+        .bind(from)
+        .bind(to)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| SalaryReportRow {
+                driver_name: r.driver_name,
+                period: r.period,
+                salary_type: r.salary_type,
+                gross: r.gross,
+                deductions: r.deductions,
+                net_payable: r.net_payable,
+            })
+            .collect())
     }
 }

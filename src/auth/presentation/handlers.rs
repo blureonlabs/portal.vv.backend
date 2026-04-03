@@ -11,7 +11,7 @@ use crate::auth::application::service::AuthService;
 use crate::auth::domain::repository::AuthRepository;
 use crate::auth::presentation::dto::{
     AcceptInviteRequest, ForgotPasswordRequest, InviteResponse, InviteUserRequest, MeResponse,
-    UserResponse,
+    UpdateAvatarRequest, UserResponse,
 };
 use crate::common::{
     error::AppError,
@@ -204,4 +204,13 @@ pub async fn forgot_password(
 ) -> Result<HttpResponse, AppError> {
     svc.forgot_password(&body.email).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(())))
+}
+
+pub async fn update_avatar(
+    user: CurrentUser,
+    svc: web::Data<Arc<AuthService>>,
+    body: web::Json<UpdateAvatarRequest>,
+) -> Result<HttpResponse, AppError> {
+    svc.repo.update_avatar(user.id, &body.avatar_url).await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(serde_json::json!({ "avatar_url": body.avatar_url }))))
 }

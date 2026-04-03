@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
+use crate::audit::application::service::AuditService;
 use crate::common::{error::AppError, types::Role};
 use crate::settings::domain::{
     entity::{Setting, ACCOUNTANT_ALLOWED_KEYS},
@@ -10,11 +11,12 @@ use crate::settings::domain::{
 
 pub struct SettingsService {
     repo: Arc<dyn SettingsRepository>,
+    audit: Arc<AuditService>,
 }
 
 impl SettingsService {
-    pub fn new(repo: Arc<dyn SettingsRepository>) -> Self {
-        Self { repo }
+    pub fn new(repo: Arc<dyn SettingsRepository>, audit: Arc<AuditService>) -> Self {
+        Self { repo, audit }
     }
 
     pub async fn list(&self) -> Result<Vec<Setting>, AppError> {
@@ -44,6 +46,24 @@ impl SettingsService {
             return Err(AppError::BadRequest("Value cannot be empty".into()));
         }
 
-        self.repo.upsert(key, value, actor_id).await
+        // Capture old value before updating
+        let old_value = self.repo.get(key).await?.map(|s| s.value);
+
+        let setting = self.repo.upsert(key, value, actor_id).await?;
+
+        self.audit.log(
+            actor_id,
+            actor_role,
+            "setting",
+            None,
+            "setting.updated",
+            Some(serde_json::json!({
+                "key": key,
+                "old_value": old_value,
+                "new_value": value,
+            })),
+        ).await?;
+
+        Ok(setting)
     }
 }

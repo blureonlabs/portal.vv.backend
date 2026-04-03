@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, role as \"role: Role\", full_name, email, is_active, invited_by, created_at\n               FROM profiles WHERE email = $1",
+  "query": "INSERT INTO profiles (id, role, full_name, email, invited_by)\n               VALUES ($1, $2, $3, $4, $5)\n               RETURNING id, role as \"role: Role\", full_name, email, is_active, avatar_url, invited_by, created_at",
   "describe": {
     "columns": [
       {
@@ -43,18 +43,40 @@
       },
       {
         "ordinal": 5,
+        "name": "avatar_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
         "name": "invited_by",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Uuid",
+        {
+          "Custom": {
+            "name": "user_role",
+            "kind": {
+              "Enum": [
+                "super_admin",
+                "accountant",
+                "hr",
+                "driver",
+                "owner"
+              ]
+            }
+          }
+        },
+        "Text",
+        "Text",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -64,8 +86,9 @@
       false,
       false,
       true,
+      true,
       false
     ]
   },
-  "hash": "9543f3e873b63c3b5dca8bb421cca047090b2073b042faa8efecabac1c41b9b4"
+  "hash": "e4c8e46835380b23f9b1d2c2cbfde345aa31ab6eef4f07e540274a85626865c5"
 }
