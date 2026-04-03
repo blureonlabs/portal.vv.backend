@@ -57,13 +57,30 @@ impl FromRequest for CurrentUser {
                 .ok_or(AppError::Unauthorized)?
                 .to_owned();
 
-            let key = DecodingKey::from_secret(config.supabase_jwt_secret.as_bytes());
-            let mut validation = Validation::new(Algorithm::HS256);
-            validation.set_audience(&["authenticated"]);
+            // Try ES256 (newer Supabase projects) first, fall back to HS256
+            let claims = {
+                // ES256: fetch JWKS components from config
+                let es256_result = (|| -> Result<SupabaseClaims, ()> {
+                    let jwks_x = std::env::var("SUPABASE_JWKS_X").map_err(|_| ())?;
+                    let jwks_y = std::env::var("SUPABASE_JWKS_Y").map_err(|_| ())?;
+                    let key = DecodingKey::from_ec_components(&jwks_x, &jwks_y).map_err(|_| ())?;
+                    let mut v = Validation::new(Algorithm::ES256);
+                    v.set_audience(&["authenticated"]);
+                    decode::<SupabaseClaims>(&token, &key, &v).map(|d| d.claims).map_err(|_| ())
+                })();
 
-            let claims = decode::<SupabaseClaims>(&token, &key, &validation)
-                .map_err(|_| AppError::Unauthorized)?
-                .claims;
+                if let Ok(c) = es256_result {
+                    c
+                } else {
+                    // HS256 fallback (older Supabase projects)
+                    let key = DecodingKey::from_secret(config.supabase_jwt_secret.as_bytes());
+                    let mut v = Validation::new(Algorithm::HS256);
+                    v.set_audience(&["authenticated"]);
+                    decode::<SupabaseClaims>(&token, &key, &v)
+                        .map_err(|_| AppError::Unauthorized)?
+                        .claims
+                }
+            };
 
             let user_id = Uuid::parse_str(&claims.sub).map_err(|_| AppError::Unauthorized)?;
 
