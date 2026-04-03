@@ -238,7 +238,7 @@ impl ReportService {
         struct CountRow { n: Option<i64> }
         let active_drivers = sqlx::query_as::<_, CountRow>("SELECT COUNT(*) AS n FROM drivers WHERE is_active = true")
             .fetch_one(&self.pool).await?.n.unwrap_or(0);
-        let active_vehicles = sqlx::query_as::<_, CountRow>("SELECT COUNT(*) AS n FROM vehicles WHERE status = 'active'")
+        let active_vehicles = sqlx::query_as::<_, CountRow>("SELECT COUNT(*) AS n FROM vehicles WHERE status != 'inactive'")
             .fetch_one(&self.pool).await?.n.unwrap_or(0);
         let pending_advances = sqlx::query_as::<_, CountRow>("SELECT COUNT(*) AS n FROM advances WHERE status = 'pending'")
             .fetch_one(&self.pool).await?.n.unwrap_or(0);
