@@ -5,6 +5,9 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct DashboardKpis {
     pub revenue_mtd: Decimal,
+    pub revenue_cash_mtd: Decimal,
+    pub revenue_card_mtd: Decimal,
+    pub revenue_other_mtd: Decimal,
     pub trips_mtd: i64,
     pub active_drivers: i64,
     pub active_vehicles: i64,
@@ -16,6 +19,25 @@ pub struct DashboardKpis {
     pub top_drivers: Vec<DriverPerfRow>,
     pub bottom_drivers: Vec<DriverPerfRow>,
     pub revenue_trend: Vec<DayRevenue>,
+    pub cash_shortfall_drivers: Vec<CashShortfallAlert>,
+    pub service_overdue_vehicles: Vec<ServiceOverdueAlert>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CashShortfallAlert {
+    pub driver_id: uuid::Uuid,
+    pub driver_name: String,
+    pub cash_received: Decimal,
+    pub cash_submitted: Decimal,
+    pub shortfall: Decimal,
+}
+
+#[derive(Debug, Clone)]
+pub struct ServiceOverdueAlert {
+    pub vehicle_id: uuid::Uuid,
+    pub plate_number: String,
+    pub service_type: String,
+    pub next_due: chrono::NaiveDate,
 }
 
 #[derive(Debug, Clone)]
@@ -80,6 +102,19 @@ pub struct FinanceReport {
     pub total_expenses: Decimal,
     pub total_handovers: Decimal,
     pub net_aed: Decimal,
+}
+
+// ── Driver Financials ─────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone)]
+pub struct DriverFinancialRow {
+    pub driver_id: uuid::Uuid,
+    pub driver_name: String,
+    pub cash_received: Decimal,
+    pub cash_submitted: Decimal,
+    pub shortfall: Decimal,
+    pub card_total: Decimal,
+    pub expenses_total: Decimal,
 }
 
 // ── Advance Report ────────────────────────────────────────────────────────────

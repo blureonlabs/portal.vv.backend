@@ -4,8 +4,9 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::report::domain::entity::{
-    AdvanceReportRow, CashFlowRow, DashboardKpis, DriverSummaryRow, FinanceReport,
-    LeaveReportRow, SalaryReportRow, TripDetailRow, VehicleReportRow,
+    AdvanceReportRow, CashFlowRow, CashShortfallAlert, DashboardKpis, DriverFinancialRow,
+    DriverSummaryRow, FinanceReport, LeaveReportRow, SalaryReportRow, ServiceOverdueAlert,
+    TripDetailRow, VehicleReportRow,
 };
 
 #[derive(Debug, Deserialize)]
@@ -188,8 +189,51 @@ pub struct DayRevenueResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct CashShortfallAlertResponse {
+    pub driver_id: Uuid,
+    pub driver_name: String,
+    pub cash_received: Decimal,
+    pub cash_submitted: Decimal,
+    pub shortfall: Decimal,
+}
+
+impl From<CashShortfallAlert> for CashShortfallAlertResponse {
+    fn from(a: CashShortfallAlert) -> Self {
+        Self {
+            driver_id: a.driver_id,
+            driver_name: a.driver_name,
+            cash_received: a.cash_received,
+            cash_submitted: a.cash_submitted,
+            shortfall: a.shortfall,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct ServiceOverdueAlertResponse {
+    pub vehicle_id: Uuid,
+    pub plate_number: String,
+    pub service_type: String,
+    pub next_due: NaiveDate,
+}
+
+impl From<ServiceOverdueAlert> for ServiceOverdueAlertResponse {
+    fn from(a: ServiceOverdueAlert) -> Self {
+        Self {
+            vehicle_id: a.vehicle_id,
+            plate_number: a.plate_number,
+            service_type: a.service_type,
+            next_due: a.next_due,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub struct DashboardKpisResponse {
     pub revenue_mtd: Decimal,
+    pub revenue_cash_mtd: Decimal,
+    pub revenue_card_mtd: Decimal,
+    pub revenue_other_mtd: Decimal,
     pub trips_mtd: i64,
     pub active_drivers: i64,
     pub active_vehicles: i64,
@@ -201,12 +245,17 @@ pub struct DashboardKpisResponse {
     pub top_drivers: Vec<DriverPerfResponse>,
     pub bottom_drivers: Vec<DriverPerfResponse>,
     pub revenue_trend: Vec<DayRevenueResponse>,
+    pub cash_shortfall_drivers: Vec<CashShortfallAlertResponse>,
+    pub service_overdue_vehicles: Vec<ServiceOverdueAlertResponse>,
 }
 
 impl From<DashboardKpis> for DashboardKpisResponse {
     fn from(d: DashboardKpis) -> Self {
         Self {
             revenue_mtd: d.revenue_mtd,
+            revenue_cash_mtd: d.revenue_cash_mtd,
+            revenue_card_mtd: d.revenue_card_mtd,
+            revenue_other_mtd: d.revenue_other_mtd,
             trips_mtd: d.trips_mtd,
             active_drivers: d.active_drivers,
             active_vehicles: d.active_vehicles,
@@ -238,6 +287,35 @@ impl From<DashboardKpis> for DashboardKpisResponse {
                 revenue_aed: r.revenue_aed,
                 trips_count: r.trips_count,
             }).collect(),
+            cash_shortfall_drivers: d.cash_shortfall_drivers.into_iter().map(Into::into).collect(),
+            service_overdue_vehicles: d.service_overdue_vehicles.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+// ── Driver Financials ─────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+pub struct DriverFinancialResponse {
+    pub driver_id: Uuid,
+    pub driver_name: String,
+    pub cash_received: Decimal,
+    pub cash_submitted: Decimal,
+    pub shortfall: Decimal,
+    pub card_total: Decimal,
+    pub expenses_total: Decimal,
+}
+
+impl From<DriverFinancialRow> for DriverFinancialResponse {
+    fn from(r: DriverFinancialRow) -> Self {
+        Self {
+            driver_id: r.driver_id,
+            driver_name: r.driver_name,
+            cash_received: r.cash_received,
+            cash_submitted: r.cash_submitted,
+            shortfall: r.shortfall,
+            card_total: r.card_total,
+            expenses_total: r.expenses_total,
         }
     }
 }

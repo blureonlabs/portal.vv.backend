@@ -5,6 +5,7 @@ use actix_web::web;
 
 pub fn routes(cfg: &mut web::ServiceConfig) {
     cfg.route("/dashboard", web::get().to(handlers::dashboard))
+       .route("/dashboard/driver-financials", web::get().to(handlers::driver_financials))
        .service(
            web::scope("/reports")
                .route("/drivers", web::get().to(handlers::driver_summary))

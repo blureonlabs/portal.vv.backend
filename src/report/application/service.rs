@@ -4,8 +4,9 @@ use uuid::Uuid;
 
 use crate::common::error::AppError;
 use crate::report::domain::entity::{
-    AdvanceReportRow, CashFlowRow, DashboardKpis, DayRevenue, DriverPerfRow, DriverSummaryRow,
-    FinanceReport, FinanceSummaryRow, InsuranceAlert, LeaveReportRow, SalaryReportRow, TripDetailRow,
+    AdvanceReportRow, CashFlowRow, CashShortfallAlert, DashboardKpis, DayRevenue,
+    DriverFinancialRow, DriverPerfRow, DriverSummaryRow, FinanceReport, FinanceSummaryRow,
+    InsuranceAlert, LeaveReportRow, SalaryReportRow, ServiceOverdueAlert, TripDetailRow,
     VehicleReportRow,
 };
 
@@ -227,7 +228,13 @@ impl ReportService {
 
         // Run ALL queries concurrently to minimize round-trip latency
         #[derive(sqlx::FromRow)]
-        struct MtdRow { revenue: Option<Decimal>, trips: Option<i64> }
+        struct MtdRow {
+            revenue: Option<Decimal>,
+            trips: Option<i64>,
+            cash_total: Option<Decimal>,
+            card_total: Option<Decimal>,
+            other_total: Option<Decimal>,
+        }
         #[derive(sqlx::FromRow)]
         struct CountsRow {
             active_drivers: Option<i64>,
@@ -243,13 +250,30 @@ impl ReportService {
         struct DayRow { date: NaiveDate, revenue_aed: Option<Decimal>, trips_count: Option<i64> }
         #[derive(sqlx::FromRow)]
         struct ExpMtdRow { total: Option<Decimal> }
+        #[derive(sqlx::FromRow)]
+        struct ThresholdRow { value: Option<String> }
+        #[derive(sqlx::FromRow)]
+        struct ShortfallRow {
+            driver_id: Uuid,
+            driver_name: String,
+            cash_received: Option<Decimal>,
+            cash_submitted: Option<Decimal>,
+        }
+        #[derive(sqlx::FromRow)]
+        struct SvcOverdueRow {
+            vehicle_id: Uuid,
+            plate_number: String,
+            service_type: String,
+            next_due: NaiveDate,
+        }
 
         let pool = &self.pool;
 
-        // Fire all 7 queries concurrently
-        let (mtd, counts, ins_rows, top_rows, bottom_rows, day_rows, exp_mtd) = tokio::try_join!(
+        // Fire all 10 queries concurrently
+        let (mtd, counts, ins_rows, top_rows, bottom_rows, day_rows, exp_mtd, threshold_row, shortfall_rows, svc_overdue_rows) = tokio::try_join!(
             sqlx::query_as::<_, MtdRow>(
-                "SELECT SUM(cash_aed + card_aed + other_aed) AS revenue, COUNT(*) AS trips \
+                "SELECT SUM(cash_aed + card_aed + other_aed) AS revenue, COUNT(*) AS trips, \
+                        SUM(cash_aed) AS cash_total, SUM(card_aed) AS card_total, SUM(other_aed) AS other_total \
                  FROM trips WHERE trip_date BETWEEN $1 AND $2 AND is_deleted = false"
             ).bind(month_start).bind(today).fetch_one(pool),
 
@@ -293,7 +317,47 @@ impl ReportService {
             sqlx::query_as::<_, ExpMtdRow>(
                 "SELECT SUM(amount_aed) AS total FROM expenses WHERE date BETWEEN $1 AND $2"
             ).bind(month_start).bind(today).fetch_one(pool),
+
+            sqlx::query_as::<_, ThresholdRow>(
+                "SELECT value FROM settings WHERE key = 'cash_shortfall_threshold_aed' LIMIT 1"
+            ).fetch_optional(pool),
+
+            sqlx::query_as::<_, ShortfallRow>(
+                "SELECT d.id AS driver_id, p.full_name AS driver_name, \
+                        COALESCE(t.cash_received, 0) AS cash_received, \
+                        COALESCE(h.cash_submitted, 0) AS cash_submitted \
+                 FROM drivers d \
+                 JOIN profiles p ON p.id = d.profile_id \
+                 LEFT JOIN ( \
+                     SELECT driver_id, SUM(cash_aed) AS cash_received \
+                     FROM trips \
+                     WHERE trip_date BETWEEN $1 AND $2 AND is_deleted = false \
+                     GROUP BY driver_id \
+                 ) t ON t.driver_id = d.id \
+                 LEFT JOIN ( \
+                     SELECT driver_id, SUM(amount_aed) AS cash_submitted \
+                     FROM cash_handovers \
+                     WHERE submitted_at::date BETWEEN $1 AND $2 \
+                     GROUP BY driver_id \
+                 ) h ON h.driver_id = d.id \
+                 WHERE d.is_active = true AND (t.driver_id IS NOT NULL OR h.driver_id IS NOT NULL)"
+            ).bind(month_start).bind(today).fetch_all(pool),
+
+            sqlx::query_as::<_, SvcOverdueRow>(
+                "SELECT DISTINCT ON (vs.vehicle_id) \
+                        v.id AS vehicle_id, v.plate_number, vs.service_type, vs.next_due \
+                 FROM vehicle_service vs \
+                 JOIN vehicles v ON v.id = vs.vehicle_id \
+                 WHERE vs.next_due IS NOT NULL AND vs.next_due < $1 \
+                 ORDER BY vs.vehicle_id, vs.next_due ASC"
+            ).bind(today).fetch_all(pool),
         )?;
+
+        // Resolve cash shortfall threshold (default 0 = all shortfalls shown)
+        let threshold: Decimal = threshold_row
+            .and_then(|r| r.value)
+            .and_then(|v| v.parse::<Decimal>().ok())
+            .unwrap_or(Decimal::ZERO);
 
         let insurance_expiring_soon = ins_rows.into_iter().map(|r| {
             let days_left = (r.insurance_expiry - today).num_days();
@@ -321,11 +385,47 @@ impl ReportService {
             trips_count: r.trips_count.unwrap_or(0),
         }).collect();
 
+        let cash_shortfall_drivers = shortfall_rows
+            .into_iter()
+            .filter_map(|r| {
+                let received = r.cash_received.unwrap_or(Decimal::ZERO);
+                let submitted = r.cash_submitted.unwrap_or(Decimal::ZERO);
+                let shortfall = received - submitted;
+                if shortfall > threshold {
+                    Some(CashShortfallAlert {
+                        driver_id: r.driver_id,
+                        driver_name: r.driver_name,
+                        cash_received: received,
+                        cash_submitted: submitted,
+                        shortfall,
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let service_overdue_vehicles = svc_overdue_rows
+            .into_iter()
+            .map(|r| ServiceOverdueAlert {
+                vehicle_id: r.vehicle_id,
+                plate_number: r.plate_number,
+                service_type: r.service_type,
+                next_due: r.next_due,
+            })
+            .collect();
+
         let revenue_mtd = mtd.revenue.unwrap_or(Decimal::ZERO);
+        let revenue_cash_mtd = mtd.cash_total.unwrap_or(Decimal::ZERO);
+        let revenue_card_mtd = mtd.card_total.unwrap_or(Decimal::ZERO);
+        let revenue_other_mtd = mtd.other_total.unwrap_or(Decimal::ZERO);
         let total_expenses_mtd = exp_mtd.total.unwrap_or(Decimal::ZERO);
 
         Ok(DashboardKpis {
             revenue_mtd,
+            revenue_cash_mtd,
+            revenue_card_mtd,
+            revenue_other_mtd,
             trips_mtd: mtd.trips.unwrap_or(0),
             active_drivers: counts.active_drivers.unwrap_or(0),
             active_vehicles: counts.active_vehicles.unwrap_or(0),
@@ -337,7 +437,81 @@ impl ReportService {
             top_drivers,
             bottom_drivers,
             revenue_trend,
+            cash_shortfall_drivers,
+            service_overdue_vehicles,
         })
+    }
+
+    pub async fn driver_financials(&self) -> Result<Vec<DriverFinancialRow>, AppError> {
+        let today = Utc::now().date_naive();
+        let month_start = NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap();
+
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            driver_id: Uuid,
+            driver_name: String,
+            cash_received: Option<Decimal>,
+            cash_submitted: Option<Decimal>,
+            card_total: Option<Decimal>,
+            expenses_total: Option<Decimal>,
+        }
+
+        let rows = sqlx::query_as::<_, Row>(
+            r#"
+            SELECT
+                d.id AS driver_id,
+                p.full_name AS driver_name,
+                COALESCE(t.cash_received, 0) AS cash_received,
+                COALESCE(h.cash_submitted, 0) AS cash_submitted,
+                COALESCE(t.card_total, 0) AS card_total,
+                COALESCE(e.expenses_total, 0) AS expenses_total
+            FROM drivers d
+            JOIN profiles p ON p.id = d.profile_id
+            LEFT JOIN (
+                SELECT driver_id,
+                       SUM(cash_aed) AS cash_received,
+                       SUM(card_aed) AS card_total
+                FROM trips
+                WHERE trip_date BETWEEN $1 AND $2 AND is_deleted = false
+                GROUP BY driver_id
+            ) t ON t.driver_id = d.id
+            LEFT JOIN (
+                SELECT driver_id, SUM(amount_aed) AS cash_submitted
+                FROM cash_handovers
+                WHERE submitted_at::date BETWEEN $1 AND $2
+                GROUP BY driver_id
+            ) h ON h.driver_id = d.id
+            LEFT JOIN (
+                SELECT driver_id, SUM(amount_aed) AS expenses_total
+                FROM expenses
+                WHERE date BETWEEN $1 AND $2
+                GROUP BY driver_id
+            ) e ON e.driver_id = d.id
+            WHERE d.is_active = true
+            ORDER BY p.full_name
+            "#,
+        )
+        .bind(month_start)
+        .bind(today)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                let cash_received = r.cash_received.unwrap_or(Decimal::ZERO);
+                let cash_submitted = r.cash_submitted.unwrap_or(Decimal::ZERO);
+                DriverFinancialRow {
+                    driver_id: r.driver_id,
+                    driver_name: r.driver_name,
+                    cash_received,
+                    cash_submitted,
+                    shortfall: cash_received - cash_submitted,
+                    card_total: r.card_total.unwrap_or(Decimal::ZERO),
+                    expenses_total: r.expenses_total.unwrap_or(Decimal::ZERO),
+                }
+            })
+            .collect())
     }
 
     pub async fn advance_report(

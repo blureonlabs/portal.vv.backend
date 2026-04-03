@@ -8,9 +8,9 @@ use crate::report::application::service::ReportService;
 use super::dto::{
     advance_report_csv, cash_flow_csv, driver_summary_csv, finance_summary_csv,
     leave_report_csv, salary_report_csv, trip_detail_csv, vehicle_report_csv,
-    AdvanceReportResponse, CashFlowResponse, DashboardKpisResponse, DriverSummaryResponse,
-    FinanceSummaryResponse, LeaveReportResponse, ReportQuery, SalaryReportResponse,
-    TripDetailResponse, VehicleReportResponse,
+    AdvanceReportResponse, CashFlowResponse, DashboardKpisResponse, DriverFinancialResponse,
+    DriverSummaryResponse, FinanceSummaryResponse, LeaveReportResponse, ReportQuery,
+    SalaryReportResponse, TripDetailResponse, VehicleReportResponse,
 };
 
 fn csv_response(content: String, filename: &str) -> HttpResponse {
@@ -78,6 +78,16 @@ pub async fn dashboard(
     require_role(&user, &[Role::SuperAdmin, Role::Accountant, Role::Hr])?;
     let kpis = svc.dashboard().await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(DashboardKpisResponse::from(kpis))))
+}
+
+pub async fn driver_financials(
+    user: CurrentUser,
+    svc: web::Data<Arc<ReportService>>,
+) -> Result<HttpResponse, AppError> {
+    require_role(&user, &[Role::SuperAdmin, Role::Accountant, Role::Hr])?;
+    let rows = svc.driver_financials().await?;
+    let resp: Vec<DriverFinancialResponse> = rows.into_iter().map(Into::into).collect();
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(resp)))
 }
 
 pub async fn advance_report(
