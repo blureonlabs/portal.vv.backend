@@ -1,0 +1,137 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO documents (entity_type, entity_id, doc_type, file_url, file_name, expiry_date, uploaded_by, notes)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n            RETURNING\n                id,\n                entity_type AS \"entity_type: DocumentEntity\",\n                entity_id,\n                doc_type AS \"doc_type: DocumentType\",\n                file_url,\n                file_name,\n                expiry_date,\n                uploaded_by,\n                notes,\n                created_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "entity_type: DocumentEntity",
+        "type_info": {
+          "Custom": {
+            "name": "document_entity",
+            "kind": {
+              "Enum": [
+                "driver",
+                "vehicle"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "entity_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "doc_type: DocumentType",
+        "type_info": {
+          "Custom": {
+            "name": "document_type",
+            "kind": {
+              "Enum": [
+                "license",
+                "visa",
+                "passport",
+                "emirates_id",
+                "medical",
+                "registration_card",
+                "insurance_certificate",
+                "receipt",
+                "other"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "file_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "file_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "expiry_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 7,
+        "name": "uploaded_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 8,
+        "name": "notes",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "document_entity",
+            "kind": {
+              "Enum": [
+                "driver",
+                "vehicle"
+              ]
+            }
+          }
+        },
+        "Uuid",
+        {
+          "Custom": {
+            "name": "document_type",
+            "kind": {
+              "Enum": [
+                "license",
+                "visa",
+                "passport",
+                "emirates_id",
+                "medical",
+                "registration_card",
+                "insurance_certificate",
+                "receipt",
+                "other"
+              ]
+            }
+          }
+        },
+        "Text",
+        "Text",
+        "Date",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "1899106fd9176f2df4b343ef6360031dd16b193e5fb10818b88196b076f8120e"
+}

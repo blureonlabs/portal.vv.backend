@@ -6,12 +6,28 @@ use uuid::Uuid;
 use crate::common::{error::AppError, response::ApiResponse, types::CurrentUser};
 use crate::hr::application::service::HrService;
 use crate::hr::presentation::dto::{LeaveResponse, ListLeaveQuery, RejectLeaveBody, SubmitLeaveBody};
+use crate::notification::application::service::NotificationService;
 
 async fn resolve_driver_id(pool: &sqlx::PgPool, user_id: Uuid) -> Result<Option<Uuid>, AppError> {
     let row = sqlx::query!("SELECT id FROM drivers WHERE profile_id = $1", user_id)
         .fetch_optional(pool)
         .await?;
     Ok(row.map(|r| r.id))
+}
+
+/// Fetch the driver's email from profiles via the drivers table.
+async fn fetch_driver_email(pool: &sqlx::PgPool, driver_id: Uuid) -> Option<String> {
+    sqlx::query!(
+        "SELECT p.email FROM profiles p
+         JOIN drivers d ON d.profile_id = p.id
+         WHERE d.id = $1",
+        driver_id
+    )
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
+    .map(|r| r.email)
 }
 
 pub async fn list_leave(
@@ -56,18 +72,58 @@ pub async fn submit_leave(
 pub async fn approve_leave(
     user: CurrentUser,
     svc: web::Data<Arc<HrService>>,
+    notification_svc: web::Data<Arc<NotificationService>>,
+    db: web::Data<crate::database::infrastructure::PgDatabase>,
     path: web::Path<Uuid>,
 ) -> Result<HttpResponse, AppError> {
+    use crate::database::domain::DatabasePool;
     let request = svc.approve(user.id, &user.role, *path).await?;
+    // Fire-and-forget notification
+    if let Some(email) = fetch_driver_email(db.pg_pool(), request.driver_id).await {
+        let leave_type = format!("{:?}", request.r#type).to_lowercase();
+        let dates = format!("{} to {}", request.from_date, request.to_date);
+        notification_svc
+            .send_leave_status_email(
+                &email,
+                &request.driver_name,
+                &leave_type,
+                &dates,
+                "approved",
+                None,
+            )
+            .await
+            .ok();
+    }
     Ok(HttpResponse::Ok().json(ApiResponse::ok(LeaveResponse::from(request))))
 }
 
 pub async fn reject_leave(
     user: CurrentUser,
     svc: web::Data<Arc<HrService>>,
+    notification_svc: web::Data<Arc<NotificationService>>,
+    db: web::Data<crate::database::infrastructure::PgDatabase>,
     path: web::Path<Uuid>,
     body: web::Json<RejectLeaveBody>,
 ) -> Result<HttpResponse, AppError> {
-    let request = svc.reject(user.id, &user.role, *path, body.into_inner().rejection_reason).await?;
+    use crate::database::domain::DatabasePool;
+    let body = body.into_inner();
+    let rejection_reason = body.rejection_reason.clone();
+    let request = svc.reject(user.id, &user.role, *path, body.rejection_reason).await?;
+    // Fire-and-forget notification
+    if let Some(email) = fetch_driver_email(db.pg_pool(), request.driver_id).await {
+        let leave_type = format!("{:?}", request.r#type).to_lowercase();
+        let dates = format!("{} to {}", request.from_date, request.to_date);
+        notification_svc
+            .send_leave_status_email(
+                &email,
+                &request.driver_name,
+                &leave_type,
+                &dates,
+                "rejected",
+                Some(&rejection_reason),
+            )
+            .await
+            .ok();
+    }
     Ok(HttpResponse::Ok().json(ApiResponse::ok(LeaveResponse::from(request))))
 }

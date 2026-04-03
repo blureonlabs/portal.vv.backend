@@ -28,6 +28,7 @@ mod uber;
 mod owner;
 mod portal;
 mod comms;
+mod document;
 
 use config::AppConfig;
 use database::infrastructure::PgDatabase;
@@ -214,6 +215,10 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
         Arc::clone(&notification_svc),
     ));
 
+    let document_repo: Arc<dyn document::domain::repository::DocumentRepository> =
+        Arc::new(document::infrastructure::PgDocumentRepository::new(db.pg_pool().clone()));
+    let document_svc = Arc::new(document::application::service::DocumentService::new(document_repo));
+
     // ── Clone for move into closure ───────────────────────────────────────────
     let config_data = web::Data::new((*config).clone());
     let db_data = web::Data::new(db);
@@ -233,6 +238,8 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let owner_svc_data = web::Data::new(Arc::clone(&owner_svc));
     let supabase_data = web::Data::new(Arc::clone(&supabase));
     let comms_svc_data = web::Data::new(Arc::clone(&comms_svc));
+    let notification_svc_data = web::Data::new(Arc::clone(&notification_svc));
+    let document_svc_data = web::Data::new(Arc::clone(&document_svc));
 
     let server = HttpServer::new(move || {
         let cors = actix_cors::Cors::default()
@@ -262,6 +269,8 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
             .app_data(owner_svc_data.clone())
             .app_data(supabase_data.clone())
             .app_data(comms_svc_data.clone())
+            .app_data(notification_svc_data.clone())
+            .app_data(document_svc_data.clone())
             .route("/", web::get().to(|| async { HttpResponse::Ok().body("FMS OK") }))
             .route("/health", web::get().to(health_check))
             .service(
@@ -283,6 +292,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
                     .configure(owner::routes)
                     .configure(portal::routes)
                     .configure(comms::routes)
+                    .configure(document::routes)
             )
     })
     .bind(&addr)?;
