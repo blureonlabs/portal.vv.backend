@@ -224,4 +224,21 @@ impl HrRepository for PgHrRepository {
 
         Ok(row.count.unwrap_or(0))
     }
+
+    async fn bulk_approve(&self, request_ids: &[Uuid], actioned_by: Uuid) -> Result<u64, AppError> {
+        let result = sqlx::query!(
+            r#"
+            UPDATE leave_requests
+            SET status = 'approved', actioned_by = $2, updated_at = NOW()
+            WHERE id = ANY($1)
+              AND status = 'pending'
+            "#,
+            request_ids,
+            actioned_by
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.rows_affected())
+    }
 }

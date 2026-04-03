@@ -13,6 +13,7 @@ pub fn routes(cfg: &mut web::ServiceConfig) {
                .route("/advances", web::get().to(handlers::advance_report))
                .route("/cash-flow", web::get().to(handlers::cash_flow_report))
                .route("/leave", web::get().to(handlers::leave_report))
-               .route("/salary", web::get().to(handlers::salary_report)),
+               .route("/salary", web::get().to(handlers::salary_report))
+               .route("/vehicles", web::get().to(handlers::vehicle_report)),
        );
 }

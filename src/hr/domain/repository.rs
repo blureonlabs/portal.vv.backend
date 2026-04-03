@@ -30,4 +30,7 @@ pub trait HrRepository: Send + Sync {
         to_date: NaiveDate,
         exclude_id: Option<Uuid>,
     ) -> Result<i64, AppError>;
+
+    /// Bulk-approve pending leave requests by ID; returns the count approved.
+    async fn bulk_approve(&self, request_ids: &[Uuid], actioned_by: Uuid) -> Result<u64, AppError>;
 }

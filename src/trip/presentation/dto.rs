@@ -90,6 +90,17 @@ impl From<Trip> for TripResponse {
     }
 }
 
+/// Response returned by the create-trip endpoint; includes an optional
+/// `conflict_warning` when another trip from a different source already
+/// exists for the same driver on the same date.
+#[derive(Debug, Serialize)]
+pub struct CreateTripResponse {
+    #[serde(flatten)]
+    pub trip: TripResponse,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conflict_warning: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct CsvPreviewResponse {
     pub rows: Vec<CsvPreviewRow>,

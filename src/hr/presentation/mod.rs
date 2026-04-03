@@ -8,6 +8,7 @@ pub fn routes(cfg: &mut web::ServiceConfig) {
         web::scope("/hr/requests")
             .route("", web::get().to(handlers::list_leave))
             .route("", web::post().to(handlers::submit_leave))
+            .route("/bulk-approve", web::post().to(handlers::bulk_approve_leave))
             .route("/{id}/approve", web::put().to(handlers::approve_leave))
             .route("/{id}/reject", web::put().to(handlers::reject_leave)),
     );

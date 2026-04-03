@@ -7,9 +7,10 @@ use crate::common::{error::AppError, response::ApiResponse, types::{CurrentUser,
 use crate::report::application::service::ReportService;
 use super::dto::{
     advance_report_csv, cash_flow_csv, driver_summary_csv, finance_summary_csv,
-    leave_report_csv, salary_report_csv, trip_detail_csv, AdvanceReportResponse,
-    CashFlowResponse, DashboardKpisResponse, DriverSummaryResponse, FinanceSummaryResponse,
-    LeaveReportResponse, ReportQuery, SalaryReportResponse, TripDetailResponse,
+    leave_report_csv, salary_report_csv, trip_detail_csv, vehicle_report_csv,
+    AdvanceReportResponse, CashFlowResponse, DashboardKpisResponse, DriverSummaryResponse,
+    FinanceSummaryResponse, LeaveReportResponse, ReportQuery, SalaryReportResponse,
+    TripDetailResponse, VehicleReportResponse,
 };
 
 fn csv_response(content: String, filename: &str) -> HttpResponse {
@@ -139,6 +140,22 @@ pub async fn salary_report(
 
     if query.format == "csv" {
         return Ok(csv_response(salary_report_csv(&resp), "salary_report.csv"));
+    }
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(resp)))
+}
+
+pub async fn vehicle_report(
+    user: CurrentUser,
+    svc: web::Data<Arc<ReportService>>,
+    query: web::Query<ReportQuery>,
+) -> Result<HttpResponse, AppError> {
+    require_role(&user, &[Role::SuperAdmin, Role::Accountant, Role::Hr])?;
+
+    let rows = svc.vehicle_report(query.from, query.to).await?;
+    let resp: Vec<VehicleReportResponse> = rows.into_iter().map(Into::into).collect();
+
+    if query.format == "csv" {
+        return Ok(csv_response(vehicle_report_csv(&resp), "vehicle_report.csv"));
     }
     Ok(HttpResponse::Ok().json(ApiResponse::ok(resp)))
 }

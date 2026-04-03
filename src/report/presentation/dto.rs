@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::report::domain::entity::{
     AdvanceReportRow, CashFlowRow, DashboardKpis, DriverSummaryRow, FinanceReport,
-    LeaveReportRow, SalaryReportRow, TripDetailRow,
+    LeaveReportRow, SalaryReportRow, TripDetailRow, VehicleReportRow,
 };
 
 #[derive(Debug, Deserialize)]
@@ -199,6 +199,7 @@ pub struct DashboardKpisResponse {
     pub net_profit: Decimal,
     pub insurance_expiring_soon: Vec<InsuranceAlertResponse>,
     pub top_drivers: Vec<DriverPerfResponse>,
+    pub bottom_drivers: Vec<DriverPerfResponse>,
     pub revenue_trend: Vec<DayRevenueResponse>,
 }
 
@@ -221,6 +222,12 @@ impl From<DashboardKpis> for DashboardKpisResponse {
                 is_expired: a.is_expired,
             }).collect(),
             top_drivers: d.top_drivers.into_iter().map(|r| DriverPerfResponse {
+                driver_id: r.driver_id,
+                driver_name: r.driver_name,
+                trips_count: r.trips_count,
+                revenue_aed: r.revenue_aed,
+            }).collect(),
+            bottom_drivers: d.bottom_drivers.into_iter().map(|r| DriverPerfResponse {
                 driver_id: r.driver_id,
                 driver_name: r.driver_name,
                 trips_count: r.trips_count,
@@ -369,6 +376,58 @@ pub fn salary_report_csv(rows: &[SalaryReportResponse]) -> String {
         out.push_str(&format!(
             "{},{},{},{},{},{}\n",
             r.driver_name, r.period, r.salary_type, r.gross, r.deductions, r.net_payable
+        ));
+    }
+    out
+}
+
+// ── Vehicle Report ────────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+pub struct VehicleReportResponse {
+    pub plate_number: String,
+    pub make: String,
+    pub model: String,
+    pub status: String,
+    pub owner_name: Option<String>,
+    pub current_driver: Option<String>,
+    pub insurance_expiry: Option<NaiveDate>,
+    pub service_count: i64,
+    pub last_service_date: Option<NaiveDate>,
+}
+
+impl From<VehicleReportRow> for VehicleReportResponse {
+    fn from(r: VehicleReportRow) -> Self {
+        Self {
+            plate_number: r.plate_number,
+            make: r.make,
+            model: r.model,
+            status: r.status,
+            owner_name: r.owner_name,
+            current_driver: r.current_driver,
+            insurance_expiry: r.insurance_expiry,
+            service_count: r.service_count,
+            last_service_date: r.last_service_date,
+        }
+    }
+}
+
+pub fn vehicle_report_csv(rows: &[VehicleReportResponse]) -> String {
+    let mut out = String::from(
+        "plate_number,make,model,status,owner_name,current_driver,insurance_expiry,service_count,last_service_date\n",
+    );
+    for r in rows {
+        out.push_str(&format!(
+            "{},{},{},{},{},{},{},{},{}\n",
+            r.plate_number,
+            r.make,
+            r.model,
+            r.status,
+            r.owner_name.as_deref().unwrap_or(""),
+            r.current_driver.as_deref().unwrap_or(""),
+            r.insurance_expiry.map(|d| d.to_string()).unwrap_or_default(),
+            r.service_count,
+            r.last_service_date.map(|d| d.to_string()).unwrap_or_default(),
         ));
     }
     out

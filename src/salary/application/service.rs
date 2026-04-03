@@ -5,6 +5,8 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::FromPrimitive;
 use uuid::Uuid;
 
+use tracing;
+
 use crate::audit::application::service::AuditService;
 use crate::common::{error::AppError, ports::DeductionPort, types::{Role, SalaryType}};
 use crate::salary::domain::{
@@ -147,7 +149,21 @@ impl SalaryService {
             generated_by:            req.generated_by,
         };
 
-        let salary = self.repo.upsert(payload).await?;
+        let mut salary = self.repo.upsert(payload).await?;
+
+        // Set a placeholder slip_url (real PDF generation to follow in a future sprint).
+        // Path convention: salary-slips/{driver_id}/{period_month}.pdf
+        let slip_path = format!(
+            "salary-slips/{}/{}.pdf",
+            salary.driver_id,
+            salary.period_month.format("%Y-%m")
+        );
+        // slip_url is stored as the storage path; the frontend constructs the full URL.
+        if let Err(e) = self.repo.update_slip_url(salary.id, &slip_path).await {
+            tracing::warn!("Failed to set slip_url for salary {}: {}", salary.id, e);
+        } else {
+            salary.slip_url = Some(slip_path);
+        }
 
         self.audit.log(req.generated_by, actor_role, "salary", Some(salary.id), "salary.generated",
             Some(serde_json::json!({

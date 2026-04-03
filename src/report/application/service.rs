@@ -6,6 +6,7 @@ use crate::common::error::AppError;
 use crate::report::domain::entity::{
     AdvanceReportRow, CashFlowRow, DashboardKpis, DayRevenue, DriverPerfRow, DriverSummaryRow,
     FinanceReport, FinanceSummaryRow, InsuranceAlert, LeaveReportRow, SalaryReportRow, TripDetailRow,
+    VehicleReportRow,
 };
 
 pub struct ReportService {
@@ -245,8 +246,8 @@ impl ReportService {
 
         let pool = &self.pool;
 
-        // Fire all 6 queries concurrently
-        let (mtd, counts, ins_rows, top_rows, day_rows, exp_mtd) = tokio::try_join!(
+        // Fire all 7 queries concurrently
+        let (mtd, counts, ins_rows, top_rows, bottom_rows, day_rows, exp_mtd) = tokio::try_join!(
             sqlx::query_as::<_, MtdRow>(
                 "SELECT SUM(cash_aed + card_aed + other_aed) AS revenue, COUNT(*) AS trips \
                  FROM trips WHERE trip_date BETWEEN $1 AND $2 AND is_deleted = false"
@@ -275,6 +276,14 @@ impl ReportService {
                  GROUP BY t.driver_id, p.full_name ORDER BY revenue_aed DESC LIMIT 5"
             ).bind(month_start).bind(today).fetch_all(pool),
 
+            sqlx::query_as::<_, TopRow>(
+                "SELECT t.driver_id, p.full_name AS driver_name, COUNT(*) AS trips_count, \
+                        SUM(t.cash_aed + t.card_aed + t.other_aed) AS revenue_aed \
+                 FROM trips t JOIN drivers d ON d.id = t.driver_id JOIN profiles p ON p.id = d.profile_id \
+                 WHERE t.trip_date BETWEEN $1 AND $2 AND t.is_deleted = false \
+                 GROUP BY t.driver_id, p.full_name ORDER BY revenue_aed ASC LIMIT 5"
+            ).bind(month_start).bind(today).fetch_all(pool),
+
             sqlx::query_as::<_, DayRow>(
                 "SELECT trip_date AS date, SUM(cash_aed + card_aed + other_aed) AS revenue_aed, COUNT(*) AS trips_count \
                  FROM trips WHERE trip_date BETWEEN $1 AND $2 AND is_deleted = false \
@@ -293,6 +302,13 @@ impl ReportService {
         }).collect();
 
         let top_drivers = top_rows.into_iter().map(|r| DriverPerfRow {
+            driver_id: r.driver_id,
+            driver_name: r.driver_name,
+            trips_count: r.trips_count.unwrap_or(0),
+            revenue_aed: r.revenue_aed.unwrap_or(Decimal::ZERO),
+        }).collect();
+
+        let bottom_drivers = bottom_rows.into_iter().map(|r| DriverPerfRow {
             driver_id: r.driver_id,
             driver_name: r.driver_name,
             trips_count: r.trips_count.unwrap_or(0),
@@ -319,6 +335,7 @@ impl ReportService {
             net_profit: revenue_mtd - total_expenses_mtd,
             insurance_expiring_soon,
             top_drivers,
+            bottom_drivers,
             revenue_trend,
         })
     }
@@ -476,6 +493,75 @@ impl ReportService {
                 pending_count: r.pending_count.unwrap_or(0),
                 approved_count: r.approved_count.unwrap_or(0),
                 rejected_count: r.rejected_count.unwrap_or(0),
+            })
+            .collect())
+    }
+
+    pub async fn vehicle_report(
+        &self,
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> Result<Vec<VehicleReportRow>, AppError> {
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            plate_number: String,
+            make: String,
+            model: String,
+            status: String,
+            owner_name: Option<String>,
+            current_driver: Option<String>,
+            insurance_expiry: Option<NaiveDate>,
+            service_count: Option<i64>,
+            last_service_date: Option<NaiveDate>,
+        }
+
+        let rows = sqlx::query_as::<_, Row>(
+            r#"
+            SELECT
+                v.plate_number,
+                v.make,
+                v.model,
+                v.status::text AS status,
+                op.full_name AS owner_name,
+                dp.full_name AS current_driver,
+                v.insurance_expiry,
+                COALESCE(svc.service_count, 0) AS service_count,
+                svc.last_service_date
+            FROM vehicles v
+            LEFT JOIN owners o ON o.id = v.owner_id
+            LEFT JOIN profiles op ON op.id = o.profile_id
+            LEFT JOIN vehicle_assignments va ON va.vehicle_id = v.id AND va.unassigned_at IS NULL
+            LEFT JOIN drivers da ON da.id = va.driver_id
+            LEFT JOIN profiles dp ON dp.id = da.profile_id
+            LEFT JOIN (
+                SELECT
+                    vehicle_id,
+                    COUNT(*) AS service_count,
+                    MAX(service_date) AS last_service_date
+                FROM vehicle_service
+                WHERE service_date BETWEEN $1 AND $2
+                GROUP BY vehicle_id
+            ) svc ON svc.vehicle_id = v.id
+            ORDER BY v.plate_number
+            "#,
+        )
+        .bind(from)
+        .bind(to)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| VehicleReportRow {
+                plate_number: r.plate_number,
+                make: r.make,
+                model: r.model,
+                status: r.status,
+                owner_name: r.owner_name,
+                current_driver: r.current_driver,
+                insurance_expiry: r.insurance_expiry,
+                service_count: r.service_count.unwrap_or(0),
+                last_service_date: r.last_service_date,
             })
             .collect())
     }

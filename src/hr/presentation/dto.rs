@@ -29,6 +29,16 @@ pub struct RejectLeaveBody {
     pub rejection_reason: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct BulkApproveBody {
+    pub request_ids: Vec<Uuid>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BulkApproveResponse {
+    pub approved_count: u64,
+}
+
 // ── Response ──────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize)]

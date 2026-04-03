@@ -9,7 +9,7 @@ use crate::common::{error::AppError, response::ApiResponse, types::{CurrentUser,
 use crate::trip::application::service::TripService;
 use crate::trip::domain::entity::CsvPreviewRow;
 use crate::trip::presentation::dto::{
-    CreateTripRequest, CsvImportRequest, CsvPreviewRequest, CsvPreviewResponse,
+    CreateTripRequest, CreateTripResponse, CsvImportRequest, CsvPreviewRequest, CsvPreviewResponse,
     ListTripsQuery, TripResponse,
 };
 
@@ -50,7 +50,7 @@ pub async fn create_trip(
     let body = body.into_inner();
     let actor_driver_id = resolve_driver_id(&svc, &user).await?;
 
-    let trip = svc.create(
+    let (trip, conflict_warning) = svc.create(
         user.id,
         &user.role,
         actor_driver_id,
@@ -63,7 +63,11 @@ pub async fn create_trip(
         body.notes,
     ).await?;
 
-    Ok(HttpResponse::Created().json(ApiResponse::ok(TripResponse::from(trip))))
+    let resp = CreateTripResponse {
+        trip: TripResponse::from(trip),
+        conflict_warning,
+    };
+    Ok(HttpResponse::Created().json(ApiResponse::ok(resp)))
 }
 
 pub async fn delete_trip(

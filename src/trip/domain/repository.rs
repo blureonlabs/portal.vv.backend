@@ -36,4 +36,7 @@ pub trait TripRepository: Send + Sync {
 
     /// Resolve driver record id from profile (auth user) id.
     async fn find_driver_id_by_profile(&self, profile_id: Uuid) -> Result<Option<Uuid>, AppError>;
+
+    /// Find non-deleted trips for a driver on a specific date.
+    async fn find_by_driver_and_date(&self, driver_id: Uuid, date: NaiveDate) -> Result<Vec<Trip>, AppError>;
 }

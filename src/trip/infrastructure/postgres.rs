@@ -195,4 +195,33 @@ impl TripRepository for PgTripRepository {
 
         Ok(row.map(|r| r.id))
     }
+
+    async fn find_by_driver_and_date(&self, driver_id: Uuid, date: NaiveDate) -> Result<Vec<Trip>, AppError> {
+        let rows = sqlx::query_as!(
+            Trip,
+            r#"
+            SELECT
+                t.id, t.driver_id,
+                p.full_name AS driver_name,
+                t.vehicle_id, t.entered_by,
+                t.trip_date,
+                t.cash_aed, t.card_aed, t.other_aed,
+                t.source AS "source: TripSource",
+                t.notes, t.is_deleted, t.created_at
+            FROM trips t
+            JOIN drivers d ON d.id = t.driver_id
+            JOIN profiles p ON p.id = d.profile_id
+            WHERE t.driver_id = $1
+              AND t.trip_date = $2
+              AND t.is_deleted = false
+            ORDER BY t.created_at ASC
+            "#,
+            driver_id,
+            date
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows)
+    }
 }

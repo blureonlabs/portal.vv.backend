@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE leave_requests\n            SET status = 'approved', actioned_by = $2, updated_at = NOW()\n            WHERE id = ANY($1)\n              AND status = 'pending'\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "df9d9e304f05e450570e699192049475fb77949724609883fe1a998cae7b02c5"
+}

@@ -245,4 +245,16 @@ impl SalaryRepository for PgSalaryRepository {
 
         Ok(row_to_salary(row))
     }
+
+    async fn update_slip_url(&self, id: Uuid, slip_url: &str) -> Result<(), AppError> {
+        sqlx::query!(
+            "UPDATE salaries SET slip_url = $2 WHERE id = $1",
+            id,
+            slip_url
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
 }

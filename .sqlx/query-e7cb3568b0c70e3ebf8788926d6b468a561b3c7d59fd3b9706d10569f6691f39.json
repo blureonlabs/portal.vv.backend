@@ -1,0 +1,106 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                t.id, t.driver_id,\n                p.full_name AS driver_name,\n                t.vehicle_id, t.entered_by,\n                t.trip_date,\n                t.cash_aed, t.card_aed, t.other_aed,\n                t.source AS \"source: TripSource\",\n                t.notes, t.is_deleted, t.created_at\n            FROM trips t\n            JOIN drivers d ON d.id = t.driver_id\n            JOIN profiles p ON p.id = d.profile_id\n            WHERE t.driver_id = $1\n              AND t.trip_date = $2\n              AND t.is_deleted = false\n            ORDER BY t.created_at ASC\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "driver_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "driver_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "vehicle_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "entered_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 5,
+        "name": "trip_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 6,
+        "name": "cash_aed",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 7,
+        "name": "card_aed",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 8,
+        "name": "other_aed",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 9,
+        "name": "source: TripSource",
+        "type_info": {
+          "Custom": {
+            "name": "trip_source",
+            "kind": {
+              "Enum": [
+                "manual",
+                "csv_import",
+                "uber_api"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "notes",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "is_deleted",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 12,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "e7cb3568b0c70e3ebf8788926d6b468a561b3c7d59fd3b9706d10569f6691f39"
+}

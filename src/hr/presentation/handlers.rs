@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::common::{error::AppError, response::ApiResponse, types::CurrentUser};
 use crate::hr::application::service::HrService;
-use crate::hr::presentation::dto::{LeaveResponse, ListLeaveQuery, RejectLeaveBody, SubmitLeaveBody};
+use crate::hr::presentation::dto::{BulkApproveBody, BulkApproveResponse, LeaveResponse, ListLeaveQuery, RejectLeaveBody, SubmitLeaveBody};
 use crate::notification::application::service::NotificationService;
 
 async fn resolve_driver_id(pool: &sqlx::PgPool, user_id: Uuid) -> Result<Option<Uuid>, AppError> {
@@ -95,6 +95,16 @@ pub async fn approve_leave(
             .ok();
     }
     Ok(HttpResponse::Ok().json(ApiResponse::ok(LeaveResponse::from(request))))
+}
+
+pub async fn bulk_approve_leave(
+    user: CurrentUser,
+    svc: web::Data<Arc<HrService>>,
+    body: web::Json<BulkApproveBody>,
+) -> Result<HttpResponse, AppError> {
+    let body = body.into_inner();
+    let approved_count = svc.bulk_approve(user.id, &user.role, body.request_ids).await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(BulkApproveResponse { approved_count })))
 }
 
 pub async fn reject_leave(

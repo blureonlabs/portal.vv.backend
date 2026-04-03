@@ -14,6 +14,7 @@ pub struct DashboardKpis {
     pub net_profit: Decimal,
     pub insurance_expiring_soon: Vec<InsuranceAlert>,
     pub top_drivers: Vec<DriverPerfRow>,
+    pub bottom_drivers: Vec<DriverPerfRow>,
     pub revenue_trend: Vec<DayRevenue>,
 }
 
@@ -112,6 +113,21 @@ pub struct LeaveReportRow {
     pub pending_count: i64,
     pub approved_count: i64,
     pub rejected_count: i64,
+}
+
+// ── Vehicle Report ────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone)]
+pub struct VehicleReportRow {
+    pub plate_number: String,
+    pub make: String,
+    pub model: String,
+    pub status: String,
+    pub owner_name: Option<String>,
+    pub current_driver: Option<String>,
+    pub insurance_expiry: Option<NaiveDate>,
+    pub service_count: i64,
+    pub last_service_date: Option<NaiveDate>,
 }
 
 // ── Salary Summary Report ─────────────────────────────────────────────────────

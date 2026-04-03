@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use chrono::NaiveDate;
+use chrono::{Duration, Local, NaiveDate};
 use uuid::Uuid;
 
 use crate::audit::application::service::AuditService;
@@ -49,6 +49,13 @@ impl HrService {
     ) -> Result<LeaveRequest, AppError> {
         if from_date > to_date {
             return Err(AppError::BadRequest("from_date must be on or before to_date".into()));
+        }
+
+        let today = Local::now().date_naive();
+        if from_date < today - Duration::days(3) {
+            return Err(AppError::BadRequest(
+                "Cannot submit leave for dates more than 3 days in the past".into(),
+            ));
         }
 
         let target_driver_id = match actor_role {
@@ -114,6 +121,32 @@ impl HrService {
             Some(serde_json::json!({ "driver_id": leave.driver_id }))).await?;
 
         Ok(leave)
+    }
+
+    pub async fn bulk_approve(
+        &self,
+        actor_id: Uuid,
+        actor_role: &Role,
+        request_ids: Vec<Uuid>,
+    ) -> Result<u64, AppError> {
+        match actor_role {
+            Role::SuperAdmin | Role::Hr => {}
+            _ => return Err(AppError::Forbidden("Only super_admin or hr can bulk-approve leave".into())),
+        }
+
+        if request_ids.is_empty() {
+            return Ok(0);
+        }
+
+        let approved_count = self.repo.bulk_approve(&request_ids, actor_id).await?;
+
+        self.audit.log(actor_id, actor_role, "leave", None, "leave.bulk_approved",
+            Some(serde_json::json!({
+                "request_ids": request_ids,
+                "approved_count": approved_count
+            }))).await?;
+
+        Ok(approved_count)
     }
 
     pub async fn reject(

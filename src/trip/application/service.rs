@@ -52,7 +52,7 @@ impl TripService {
         card_aed: Decimal,
         other_aed: Decimal,
         notes: Option<String>,
-    ) -> Result<Trip, AppError> {
+    ) -> Result<(Trip, Option<String>), AppError> {
         // Drivers can only enter their own trips, and only if self_entry_enabled
         if *actor_role == Role::Driver {
             let own_driver_id = actor_driver_id
@@ -98,7 +98,19 @@ impl TripService {
         self.audit.log(actor_id, actor_role, "trip", Some(trip.id), "trip.created",
             Some(serde_json::json!({ "driver_id": driver_id, "trip_date": trip_date }))).await?;
 
-        Ok(trip)
+        // Conflict detection: check if another trip for the same driver+date
+        // was entered from a different source. Admin entries take priority.
+        let existing = self.repo.find_by_driver_and_date(driver_id, trip_date).await?;
+        let new_source = &trip.source;
+        let conflict_warning = existing.iter()
+            .filter(|t| t.id != trip.id && &t.source != new_source)
+            .map(|t| format!(
+                "A trip from source '{:?}' already exists for driver {} on {}. Admin entry takes priority.",
+                t.source, driver_id, trip_date
+            ))
+            .next();
+
+        Ok((trip, conflict_warning))
     }
 
     pub async fn delete(
