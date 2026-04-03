@@ -191,6 +191,8 @@ pub struct DashboardKpisResponse {
     pub active_vehicles: i64,
     pub pending_advances: i64,
     pub pending_leave: i64,
+    pub total_expenses_mtd: Decimal,
+    pub net_profit: Decimal,
     pub insurance_expiring_soon: Vec<InsuranceAlertResponse>,
     pub top_drivers: Vec<DriverPerfResponse>,
     pub revenue_trend: Vec<DayRevenueResponse>,
@@ -205,6 +207,8 @@ impl From<DashboardKpis> for DashboardKpisResponse {
             active_vehicles: d.active_vehicles,
             pending_advances: d.pending_advances,
             pending_leave: d.pending_leave,
+            total_expenses_mtd: d.total_expenses_mtd,
+            net_profit: d.net_profit,
             insurance_expiring_soon: d.insurance_expiring_soon.into_iter().map(|a| InsuranceAlertResponse {
                 vehicle_id: a.vehicle_id,
                 plate_number: a.plate_number,

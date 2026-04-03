@@ -240,11 +240,13 @@ impl ReportService {
         struct TopRow { driver_id: Uuid, driver_name: String, trips_count: Option<i64>, revenue_aed: Option<Decimal> }
         #[derive(sqlx::FromRow)]
         struct DayRow { date: NaiveDate, revenue_aed: Option<Decimal>, trips_count: Option<i64> }
+        #[derive(sqlx::FromRow)]
+        struct ExpMtdRow { total: Option<Decimal> }
 
         let pool = &self.pool;
 
-        // Fire all 5 queries concurrently (was 8 sequential)
-        let (mtd, counts, ins_rows, top_rows, day_rows) = tokio::try_join!(
+        // Fire all 6 queries concurrently
+        let (mtd, counts, ins_rows, top_rows, day_rows, exp_mtd) = tokio::try_join!(
             sqlx::query_as::<_, MtdRow>(
                 "SELECT SUM(cash_aed + card_aed + other_aed) AS revenue, COUNT(*) AS trips \
                  FROM trips WHERE trip_date BETWEEN $1 AND $2 AND is_deleted = false"
@@ -278,6 +280,10 @@ impl ReportService {
                  FROM trips WHERE trip_date BETWEEN $1 AND $2 AND is_deleted = false \
                  GROUP BY trip_date ORDER BY trip_date"
             ).bind(thirty_days_ago).bind(today).fetch_all(pool),
+
+            sqlx::query_as::<_, ExpMtdRow>(
+                "SELECT SUM(amount_aed) AS total FROM expenses WHERE date BETWEEN $1 AND $2"
+            ).bind(month_start).bind(today).fetch_one(pool),
         )?;
 
         let insurance_expiring_soon = ins_rows.into_iter().map(|r| {
@@ -298,13 +304,18 @@ impl ReportService {
             trips_count: r.trips_count.unwrap_or(0),
         }).collect();
 
+        let revenue_mtd = mtd.revenue.unwrap_or(Decimal::ZERO);
+        let total_expenses_mtd = exp_mtd.total.unwrap_or(Decimal::ZERO);
+
         Ok(DashboardKpis {
-            revenue_mtd: mtd.revenue.unwrap_or(Decimal::ZERO),
+            revenue_mtd,
             trips_mtd: mtd.trips.unwrap_or(0),
             active_drivers: counts.active_drivers.unwrap_or(0),
             active_vehicles: counts.active_vehicles.unwrap_or(0),
             pending_advances: counts.pending_advances.unwrap_or(0),
             pending_leave: counts.pending_leave.unwrap_or(0),
+            total_expenses_mtd,
+            net_profit: revenue_mtd - total_expenses_mtd,
             insurance_expiring_soon,
             top_drivers,
             revenue_trend,

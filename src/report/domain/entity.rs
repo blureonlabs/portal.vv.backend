@@ -10,6 +10,8 @@ pub struct DashboardKpis {
     pub active_vehicles: i64,
     pub pending_advances: i64,
     pub pending_leave: i64,
+    pub total_expenses_mtd: Decimal,
+    pub net_profit: Decimal,
     pub insurance_expiring_soon: Vec<InsuranceAlert>,
     pub top_drivers: Vec<DriverPerfRow>,
     pub revenue_trend: Vec<DayRevenue>,
