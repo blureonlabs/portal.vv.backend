@@ -47,7 +47,7 @@ impl AuditService {
     ) -> Result<Vec<AuditEntry>, AppError> {
         // Build dynamic query — no compile-time macro because conditions are runtime
         let mut qb = sqlx::QueryBuilder::<sqlx::Postgres>::new(
-            "SELECT id, actor_id, actor_role, entity_type, entity_id, action, metadata_json, created_at \
+            "SELECT id, actor_id, actor_role::text, entity_type, entity_id, action, metadata_json, created_at \
              FROM audit_log WHERE 1=1",
         );
         if let Some(et) = entity_type {
