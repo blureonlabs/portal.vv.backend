@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "user_role", rename_all = "snake_case")]
 pub enum Role {
     SuperAdmin,
@@ -11,6 +12,7 @@ pub enum Role {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "salary_type", rename_all = "snake_case")]
 pub enum SalaryType {
     Commission,
