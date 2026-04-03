@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::advance::domain::entity::{Advance, AdvanceStatus, PaymentMethod};
+use crate::common::deserialize::{empty_string_as_none_date, empty_string_as_none_uuid};
 
 // ── Requests ──────────────────────────────────────────────────────────────────
 
@@ -15,6 +16,7 @@ pub struct ListAdvancesQuery {
 
 #[derive(Debug, Deserialize)]
 pub struct RequestAdvanceBody {
+    #[serde(default, deserialize_with = "empty_string_as_none_uuid")]
     pub driver_id: Option<Uuid>,
     pub amount_aed: Decimal,
     pub reason: String,
@@ -29,6 +31,7 @@ pub struct RejectAdvanceBody {
 pub struct PayAdvanceBody {
     pub payment_date: NaiveDate,
     pub method: PaymentMethod,
+    #[serde(default, deserialize_with = "empty_string_as_none_date")]
     pub salary_period: Option<NaiveDate>,
 }
 
@@ -41,10 +44,10 @@ pub struct AdvanceResponse {
     pub driver_name: String,
     pub amount_aed: Decimal,
     pub reason: String,
-    pub status: String,
+    pub status: AdvanceStatus,
     pub rejection_reason: Option<String>,
     pub payment_date: Option<NaiveDate>,
-    pub method: Option<String>,
+    pub method: Option<PaymentMethod>,
     pub carry_forward_aed: Decimal,
     pub salary_period: Option<NaiveDate>,
     pub actioned_by: Option<Uuid>,
@@ -61,10 +64,10 @@ impl From<Advance> for AdvanceResponse {
             driver_name: a.driver_name,
             amount_aed: a.amount_aed,
             reason: a.reason,
-            status: format!("{:?}", a.status).to_lowercase(),
+            status: a.status,
             rejection_reason: a.rejection_reason,
             payment_date: a.payment_date,
-            method: a.method.map(|m| format!("{:?}", m).to_lowercase()),
+            method: a.method,
             carry_forward_aed: a.carry_forward_aed,
             salary_period: a.salary_period,
             actioned_by: a.actioned_by,
