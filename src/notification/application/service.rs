@@ -12,20 +12,105 @@ impl NotificationService {
         Self { resend }
     }
 
+    // ── Shared branded template ──────────────────────────────────────────────
+
+    fn email_template(title: &str, body_html: &str) -> String {
+        format!(
+            r#"<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:32px 0">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
+
+  <!-- Header -->
+  <tr><td style="background:#161f3f;padding:32px;text-align:center;border-radius:12px 12px 0 0">
+    <img src="https://ohigikaddfxqvrcpxiwj.supabase.co/storage/v1/object/public/vv-images/logo.png"
+         alt="Voiture Voyages" height="48"
+         style="display:block;margin:0 auto 8px">
+    <p style="color:#ffffff;margin:0;font-size:13px;opacity:0.75;letter-spacing:0.5px">Fleet Management System</p>
+  </td></tr>
+
+  <!-- Body -->
+  <tr><td style="background:#ffffff;padding:40px 32px;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb">
+    <h2 style="color:#161f3f;margin:0 0 24px;font-size:20px;font-weight:700">{title}</h2>
+    {body_html}
+  </td></tr>
+
+  <!-- Footer -->
+  <tr><td style="background:#f9fafb;padding:24px 32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;text-align:center">
+    <p style="color:#6b7280;margin:0 0 6px;font-size:12px">Voiture Voyages — Fleet Management System</p>
+    <p style="color:#9ca3af;margin:0;font-size:11px">This is an automated message. Please do not reply.</p>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>"#,
+            title = title,
+            body_html = body_html
+        )
+    }
+
+    // ── Status badge helper ──────────────────────────────────────────────────
+
+    fn status_badge(status: &str) -> String {
+        let (bg, fg) = match status {
+            "approved" => ("#dcfce7", "#166534"),
+            "rejected" => ("#fef2f2", "#991b1b"),
+            "paid"     => ("#eff6ff", "#1e40af"),
+            "pending"  => ("#fefce8", "#854d0e"),
+            _          => ("#f3f4f6", "#374151"),
+        };
+        format!(
+            r#"<span style="display:inline-block;padding:4px 14px;border-radius:50px;font-size:12px;font-weight:700;background:{bg};color:{fg}">{label}</span>"#,
+            bg = bg,
+            fg = fg,
+            label = Self::capitalise(status),
+        )
+    }
+
+    // ── CTA button helper ────────────────────────────────────────────────────
+
+    fn cta_button(url: &str, label: &str) -> String {
+        format!(
+            r#"<a href="{url}" style="display:inline-block;background:#161f3f;color:#ffffff;padding:12px 32px;border-radius:50px;text-decoration:none;font-weight:700;font-size:14px;letter-spacing:0.3px">{label}</a>"#,
+            url = url,
+            label = label,
+        )
+    }
+
+    // ── Public email methods ─────────────────────────────────────────────────
+
     pub async fn send_invite_email(
         &self,
         to_email: &str,
         full_name: &str,
         invite_url: &str,
     ) -> Result<(), AppError> {
-        let subject = "You've been invited to Voiture Voyages FMS";
-        let html = format!(
-            r#"<p>Hello {full_name},</p>
-<p>You have been invited to join the Fleet Management System.</p>
-<p><a href="{invite_url}" style="background:#6366f1;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block">Accept Invitation</a></p>
-<p>This link expires in 24 hours. If you didn't expect this email, you can safely ignore it.</p>
-<p>— Voiture Voyages Operations</p>"#
+        let subject = "You've Been Invited to Voiture Voyages FMS";
+        let button = Self::cta_button(invite_url, "Accept Invitation");
+        let body = format!(
+            r#"<p style="color:#374151;margin:0 0 16px;font-size:15px;line-height:1.6">
+  Hello <strong>{full_name}</strong>,
+</p>
+<p style="color:#374151;margin:0 0 24px;font-size:15px;line-height:1.6">
+  You have been invited to join the <strong>Voiture Voyages Fleet Management System</strong>.
+  Click the button below to set up your account and get started.
+</p>
+<p style="margin:0 0 32px;text-align:center">
+  {button}
+</p>
+<p style="color:#6b7280;margin:0;font-size:13px;line-height:1.5">
+  This invitation link expires in <strong>24 hours</strong>. If you did not expect this invitation, you can safely ignore this email.
+</p>"#
         );
+        let html = Self::email_template("You've Been Invited", &body);
         self.resend.send(to_email, subject, &html).await
     }
 
@@ -35,13 +120,12 @@ impl NotificationService {
         subject: &str,
         html_body: &str,
     ) -> Result<(), AppError> {
-        let html = format!(
-            r#"<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
-{html_body}
-<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
-<p style="color:#6b7280;font-size:12px">Sent via Voiture Voyages Fleet Management</p>
+        let body = format!(
+            r#"<div style="color:#374151;font-size:15px;line-height:1.7">
+  {html_body}
 </div>"#
         );
+        let html = Self::email_template(subject, &body);
         self.resend.send(to_email, subject, &html).await
     }
 
@@ -50,14 +134,23 @@ impl NotificationService {
         to_email: &str,
         reset_url: &str,
     ) -> Result<(), AppError> {
-        let subject = "Reset your FMS password";
-        let html = format!(
-            r#"<p>Hello,</p>
-<p>We received a request to reset your password.</p>
-<p><a href="{reset_url}" style="background:#6366f1;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block">Reset Password</a></p>
-<p>This link expires in 1 hour. If you didn't request this, ignore this email.</p>
-<p>— Voiture Voyages Operations</p>"#
+        let subject = "Reset Your Password";
+        let button = Self::cta_button(reset_url, "Reset Password");
+        let body = format!(
+            r#"<p style="color:#374151;margin:0 0 16px;font-size:15px;line-height:1.6">
+  Hello,
+</p>
+<p style="color:#374151;margin:0 0 24px;font-size:15px;line-height:1.6">
+  We received a request to reset the password for your FMS account. Click the button below to choose a new password.
+</p>
+<p style="margin:0 0 32px;text-align:center">
+  {button}
+</p>
+<p style="color:#6b7280;margin:0;font-size:13px;line-height:1.5">
+  This link expires in <strong>1 hour</strong>. If you did not request a password reset, you can safely ignore this email — your account remains secure.
+</p>"#
         );
+        let html = Self::email_template("Reset Your Password", &body);
         self.resend.send(to_email, subject, &html).await
     }
 
@@ -69,33 +162,39 @@ impl NotificationService {
         status: &str,
         reason: Option<&str>,
     ) -> Result<(), AppError> {
-        let subject = format!("Advance Request {}", Self::capitalise(status));
-        let status_color = match status {
-            "approved" => "#16a34a",
-            "rejected" => "#dc2626",
-            "paid"     => "#161f3f",
-            _          => "#6b7280",
-        };
+        let title = format!("Advance Request {}", Self::capitalise(status));
+        let subject = format!("Advance Request {} — Voiture Voyages", Self::capitalise(status));
+        let badge = Self::status_badge(status);
         let reason_block = reason
             .map(|r| format!(
-                r#"<p style="margin:16px 0"><strong>Reason:</strong> {r}</p>"#
+                r#"<div style="margin:24px 0;padding:16px;background:#f9fafb;border-left:4px solid #e5e7eb;border-radius:4px">
+  <p style="margin:0;color:#374151;font-size:14px"><strong>Reason:</strong> {r}</p>
+</div>"#
             ))
             .unwrap_or_default();
-        let html = format!(
-            r#"<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
-  <div style="background:#161f3f;padding:24px 32px;border-radius:8px 8px 0 0">
-    <h1 style="color:#fff;margin:0;font-size:20px">Voiture Voyages Fleet Management</h1>
-  </div>
-  <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
-    <p style="margin:0 0 16px">Hello <strong>{driver_name}</strong>,</p>
-    <p style="margin:0 0 16px">Your advance request for <strong>AED {amount}</strong> has been
-      <span style="color:{status_color};font-weight:600">{status}</span>.</p>
-    {reason_block}
-    <p style="margin:24px 0 0;color:#6b7280;font-size:13px">If you have any questions, please contact the operations team.</p>
-  </div>
-  <p style="color:#9ca3af;font-size:11px;text-align:center;margin:16px 0">© Voiture Voyages — Fleet Management System</p>
-</div>"#
+        let body = format!(
+            r#"<p style="color:#374151;margin:0 0 16px;font-size:15px;line-height:1.6">
+  Hello <strong>{driver_name}</strong>,
+</p>
+<p style="color:#374151;margin:0 0 24px;font-size:15px;line-height:1.6">
+  Your advance request has been reviewed. Here are the details:
+</p>
+<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:0 0 24px">
+  <tr>
+    <td style="padding:12px 16px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;width:40%">Amount Requested</td>
+    <td style="padding:12px 16px;background:#ffffff;border:1px solid #e5e7eb;font-size:15px;font-weight:700;color:#161f3f">AED {amount}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280">Status</td>
+    <td style="padding:12px 16px;background:#ffffff;border:1px solid #e5e7eb">{badge}</td>
+  </tr>
+</table>
+{reason_block}
+<p style="color:#6b7280;margin:0;font-size:13px;line-height:1.5">
+  If you have any questions, please contact the operations team.
+</p>"#
         );
+        let html = Self::email_template(&title, &body);
         self.resend.send(to, &subject, &html).await
     }
 
@@ -106,21 +205,25 @@ impl NotificationService {
         amount: &str,
     ) -> Result<(), AppError> {
         let subject = "New Advance Request — Action Required";
-        let html = format!(
-            r#"<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
-  <div style="background:#161f3f;padding:24px 32px;border-radius:8px 8px 0 0">
-    <h1 style="color:#fff;margin:0;font-size:20px">Voiture Voyages Fleet Management</h1>
-  </div>
-  <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
-    <p style="margin:0 0 16px">A new advance request requires your attention.</p>
-    <p style="margin:0 0 16px"><strong>Driver:</strong> {driver_name}<br>
-       <strong>Amount:</strong> AED {amount}</p>
-    <p style="margin:0 0 16px">Please log in to the Fleet Management System to review and action this request.</p>
-    <p style="margin:24px 0 0;color:#6b7280;font-size:13px">This is an automated notification.</p>
-  </div>
-  <p style="color:#9ca3af;font-size:11px;text-align:center;margin:16px 0">© Voiture Voyages — Fleet Management System</p>
-</div>"#
+        let body = format!(
+            r#"<p style="color:#374151;margin:0 0 16px;font-size:15px;line-height:1.6">
+  A new advance request has been submitted and requires your review.
+</p>
+<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:0 0 32px">
+  <tr>
+    <td style="padding:12px 16px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;width:40%">Driver</td>
+    <td style="padding:12px 16px;background:#ffffff;border:1px solid #e5e7eb;font-size:15px;font-weight:600;color:#161f3f">{driver_name}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280">Amount Requested</td>
+    <td style="padding:12px 16px;background:#ffffff;border:1px solid #e5e7eb;font-size:15px;font-weight:700;color:#161f3f">AED {amount}</td>
+  </tr>
+</table>
+<p style="color:#6b7280;margin:0;font-size:13px;line-height:1.5">
+  Please log in to the Fleet Management System to review and action this request.
+</p>"#
         );
+        let html = Self::email_template("New Advance Request", &body);
         self.resend.send(to, subject, &html).await
     }
 
@@ -133,33 +236,44 @@ impl NotificationService {
         status: &str,
         reason: Option<&str>,
     ) -> Result<(), AppError> {
-        let subject = format!("Leave Request {}", Self::capitalise(status));
-        let status_color = match status {
-            "approved" => "#16a34a",
-            "rejected" => "#dc2626",
-            _          => "#6b7280",
-        };
+        let title = format!("Leave Request {}", Self::capitalise(status));
+        let subject = format!("Leave Request {} — Voiture Voyages", Self::capitalise(status));
+        let badge = Self::status_badge(status);
+        let leave_label = Self::capitalise(leave_type);
         let reason_block = reason
             .map(|r| format!(
-                r#"<p style="margin:16px 0"><strong>Reason:</strong> {r}</p>"#
+                r#"<div style="margin:24px 0;padding:16px;background:#f9fafb;border-left:4px solid #e5e7eb;border-radius:4px">
+  <p style="margin:0;color:#374151;font-size:14px"><strong>Reason:</strong> {r}</p>
+</div>"#
             ))
             .unwrap_or_default();
-        let leave_label = Self::capitalise(leave_type);
-        let html = format!(
-            r#"<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
-  <div style="background:#161f3f;padding:24px 32px;border-radius:8px 8px 0 0">
-    <h1 style="color:#fff;margin:0;font-size:20px">Voiture Voyages Fleet Management</h1>
-  </div>
-  <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
-    <p style="margin:0 0 16px">Hello <strong>{driver_name}</strong>,</p>
-    <p style="margin:0 0 16px">Your <strong>{leave_label}</strong> request for <strong>{dates}</strong> has been
-      <span style="color:{status_color};font-weight:600">{status}</span>.</p>
-    {reason_block}
-    <p style="margin:24px 0 0;color:#6b7280;font-size:13px">If you have any questions, please contact HR.</p>
-  </div>
-  <p style="color:#9ca3af;font-size:11px;text-align:center;margin:16px 0">© Voiture Voyages — Fleet Management System</p>
-</div>"#
+        let body = format!(
+            r#"<p style="color:#374151;margin:0 0 16px;font-size:15px;line-height:1.6">
+  Hello <strong>{driver_name}</strong>,
+</p>
+<p style="color:#374151;margin:0 0 24px;font-size:15px;line-height:1.6">
+  Your leave request has been reviewed. Here are the details:
+</p>
+<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:0 0 24px">
+  <tr>
+    <td style="padding:12px 16px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;width:40%">Leave Type</td>
+    <td style="padding:12px 16px;background:#ffffff;border:1px solid #e5e7eb;font-size:15px;font-weight:600;color:#161f3f">{leave_label}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280">Dates</td>
+    <td style="padding:12px 16px;background:#ffffff;border:1px solid #e5e7eb;font-size:15px;color:#374151">{dates}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280">Status</td>
+    <td style="padding:12px 16px;background:#ffffff;border:1px solid #e5e7eb">{badge}</td>
+  </tr>
+</table>
+{reason_block}
+<p style="color:#6b7280;margin:0;font-size:13px;line-height:1.5">
+  If you have any questions, please contact HR or your operations manager.
+</p>"#
         );
+        let html = Self::email_template(&title, &body);
         self.resend.send(to, &subject, &html).await
     }
 
@@ -171,18 +285,34 @@ impl NotificationService {
         period: &str,
         total: &str,
     ) -> Result<(), AppError> {
+        let title = format!("Invoice {}", invoice_no);
         let subject = format!("Invoice {} — Voiture Voyages", invoice_no);
-        let html = [
-            "<div style='font-family:sans-serif;max-width:600px;margin:0 auto'>",
-            "<div style='background:#161f3f;padding:24px 32px;border-radius:8px 8px 0 0'>",
-            "<h1 style='color:#fff;margin:0;font-size:20px'>Voiture Voyages Fleet Management</h1></div>",
-            "<div style='padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px'>",
-            &format!("<p>Hello <strong>{}</strong>,</p>", driver_name),
-            "<p>Your invoice has been generated:</p>",
-            &format!("<p><strong>Invoice:</strong> {}<br><strong>Period:</strong> {}<br><strong>Total:</strong> AED {}</p>", invoice_no, period, total),
-            "<p style='color:#6b7280;font-size:13px'>Please retain this invoice for your records.</p>",
-            "</div></div>",
-        ].join("");
+        let body = format!(
+            r#"<p style="color:#374151;margin:0 0 16px;font-size:15px;line-height:1.6">
+  Hello <strong>{driver_name}</strong>,
+</p>
+<p style="color:#374151;margin:0 0 24px;font-size:15px;line-height:1.6">
+  Your invoice has been generated. Please find the details below.
+</p>
+<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:0 0 32px">
+  <tr>
+    <td style="padding:12px 16px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;width:40%">Invoice Number</td>
+    <td style="padding:12px 16px;background:#ffffff;border:1px solid #e5e7eb;font-size:15px;font-weight:700;color:#161f3f">{invoice_no}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280">Period</td>
+    <td style="padding:12px 16px;background:#ffffff;border:1px solid #e5e7eb;font-size:15px;color:#374151">{period}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280">Total Amount</td>
+    <td style="padding:12px 16px;background:#ffffff;border:1px solid #e5e7eb;font-size:18px;font-weight:700;color:#161f3f">AED {total}</td>
+  </tr>
+</table>
+<p style="color:#6b7280;margin:0;font-size:13px;line-height:1.5">
+  Please retain this invoice for your records.
+</p>"#
+        );
+        let html = Self::email_template(&title, &body);
         self.resend.send(to, &subject, &html).await
     }
 
@@ -192,29 +322,35 @@ impl NotificationService {
         name: &str,
         new_password: &str,
     ) -> Result<(), AppError> {
-        let subject = "Your FMS password has been reset";
-        let html = format!(
-            r#"<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
-  <div style="background:#161f3f;padding:24px 32px;border-radius:8px 8px 0 0">
-    <h1 style="color:#fff;margin:0;font-size:20px">Voiture Voyages Fleet Management</h1>
-  </div>
-  <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
-    <p style="margin:0 0 16px">Hello <strong>{name}</strong>,</p>
-    <p style="margin:0 0 16px">An administrator has reset your password. Your new temporary password is:</p>
-    <p style="margin:0 0 24px;font-size:20px;font-weight:700;letter-spacing:2px;color:#161f3f">{new_password}</p>
-    <p style="margin:0 0 16px">Please log in and change your password immediately for security.</p>
-    <p style="margin:24px 0 0;color:#6b7280;font-size:13px">If you did not expect this change, contact your administrator immediately.</p>
-  </div>
-  <p style="color:#9ca3af;font-size:11px;text-align:center;margin:16px 0">© Voiture Voyages — Fleet Management System</p>
-</div>"#
+        let subject = "Password Updated — Voiture Voyages FMS";
+        let body = format!(
+            r#"<p style="color:#374151;margin:0 0 16px;font-size:15px;line-height:1.6">
+  Hello <strong>{name}</strong>,
+</p>
+<p style="color:#374151;margin:0 0 24px;font-size:15px;line-height:1.6">
+  An administrator has reset your FMS account password. Your new temporary password is shown below.
+</p>
+<div style="margin:0 0 24px;padding:20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;text-align:center">
+  <p style="margin:0 0 8px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1px">Temporary Password</p>
+  <p style="margin:0;font-size:22px;font-weight:700;letter-spacing:4px;color:#161f3f;font-family:monospace">{new_password}</p>
+</div>
+<p style="color:#374151;margin:0 0 16px;font-size:15px;line-height:1.6">
+  Please log in and change your password immediately.
+</p>
+<p style="color:#6b7280;margin:0;font-size:13px;line-height:1.5">
+  If you did not expect this change, contact your administrator immediately.
+</p>"#
         );
+        let html = Self::email_template("Password Updated", &body);
         self.resend.send(to, subject, &html).await
     }
+
+    // ── Utilities ────────────────────────────────────────────────────────────
 
     fn capitalise(s: &str) -> String {
         let mut c = s.chars();
         match c.next() {
-            None => String::new(),
+            None    => String::new(),
             Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
         }
     }
