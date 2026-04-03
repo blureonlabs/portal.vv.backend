@@ -8,6 +8,7 @@ pub fn routes(cfg: &mut web::ServiceConfig) {
         web::scope("/drivers")
             .route("", web::get().to(handlers::list_drivers))
             .route("", web::post().to(handlers::create_driver))
+            .route("/create-with-account", web::post().to(handlers::create_driver_with_account))
             .route("/{id}", web::get().to(handlers::get_driver))
             .route("/{id}", web::put().to(handlers::update_driver))
             .route("/{id}/deactivate", web::put().to(handlers::deactivate_driver))

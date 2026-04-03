@@ -2,11 +2,13 @@ use std::sync::Arc;
 use actix_web::{web, HttpResponse};
 use uuid::Uuid;
 
+use crate::auth::infrastructure::SupabaseAdminClient;
 use crate::auth::presentation::handlers::require_role;
 use crate::common::{error::AppError, response::ApiResponse, types::{CurrentUser, Role}};
 use crate::driver::application::service::DriverService;
 use crate::driver::presentation::dto::{
-    CreateDriverRequest, DriverEditResponse, DriverResponse, SetSelfEntryRequest, UpdateDriverRequest,
+    CreateDriverRequest, CreateDriverWithAccountRequest, DriverEditResponse, DriverResponse,
+    SetSelfEntryRequest, UpdateDriverRequest,
 };
 
 pub async fn list_drivers(
@@ -95,4 +97,26 @@ pub async fn list_driver_edits(
     let edits: Vec<DriverEditResponse> = svc.repo.list_edits(path.into_inner()).await?
         .into_iter().map(DriverEditResponse::from).collect();
     Ok(HttpResponse::Ok().json(ApiResponse::ok(edits)))
+}
+
+pub async fn create_driver_with_account(
+    user: CurrentUser,
+    svc: web::Data<Arc<DriverService>>,
+    supabase: web::Data<Arc<SupabaseAdminClient>>,
+    auth_repo: web::Data<Arc<dyn crate::auth::domain::repository::AuthRepository>>,
+    body: web::Json<CreateDriverWithAccountRequest>,
+) -> Result<HttpResponse, AppError> {
+    require_role(&user, &[Role::SuperAdmin])?;
+    let b = body.into_inner();
+
+    // 1. Create Supabase auth user
+    let user_id = supabase.create_user(&b.email, &b.password).await?;
+
+    // 2. Create profile with role=driver and optional phone
+    auth_repo.create_profile(user_id, &b.full_name, &b.email, &Role::Driver, b.phone.as_deref()).await?;
+
+    // 3. Create driver record
+    let driver: DriverResponse = svc.repo.create(user_id, &b.nationality, b.salary_type).await?.into();
+
+    Ok(HttpResponse::Created().json(ApiResponse::ok(driver)))
 }

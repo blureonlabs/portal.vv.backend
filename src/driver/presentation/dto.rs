@@ -12,6 +12,18 @@ pub struct CreateDriverRequest {
     pub salary_type: SalaryType,
 }
 
+/// Create driver with a new auth account in one step (super_admin use)
+#[derive(Debug, Deserialize)]
+pub struct CreateDriverWithAccountRequest {
+    pub email: String,
+    pub password: String,
+    pub full_name: String,
+    #[serde(default)]
+    pub phone: Option<String>,
+    pub nationality: String,
+    pub salary_type: SalaryType,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct UpdateDriverRequest {
     pub nationality: String,
