@@ -238,6 +238,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
             .app_data(audit_svc_data.clone())
             .app_data(report_svc_data.clone())
             .app_data(salary_svc_data.clone())
+            .route("/", web::get().to(|| async { HttpResponse::Ok().body("FMS OK") }))
             .route("/health", web::get().to(health_check))
             .service(
                 web::scope("/api/v1")
