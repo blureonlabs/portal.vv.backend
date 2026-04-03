@@ -1,9 +1,18 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use uuid::Uuid;
 
 use crate::vehicle::domain::entity::{Vehicle, VehicleAssignment, VehicleServiceRecord, VehicleStatus};
+
+/// Deserialize empty strings as None for Option<NaiveDate>
+fn empty_string_as_none<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<NaiveDate>, D::Error> {
+    let opt = Option::<String>::deserialize(deserializer)?;
+    match opt.as_deref() {
+        None | Some("") => Ok(None),
+        Some(s) => s.parse::<NaiveDate>().map(Some).map_err(serde::de::Error::custom),
+    }
+}
 
 // ── Requests ──────────────────────────────────────────────────────────────────
 
@@ -14,8 +23,11 @@ pub struct CreateVehicleRequest {
     pub model: String,
     pub year: i32,
     pub color: Option<String>,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub registration_date: Option<NaiveDate>,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub registration_expiry: Option<NaiveDate>,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub insurance_expiry: Option<NaiveDate>,
 }
 
@@ -26,8 +38,11 @@ pub struct UpdateVehicleRequest {
     pub model: String,
     pub year: i32,
     pub color: Option<String>,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub registration_date: Option<NaiveDate>,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub registration_expiry: Option<NaiveDate>,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub insurance_expiry: Option<NaiveDate>,
 }
 
