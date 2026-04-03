@@ -1,18 +1,10 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::common::deserialize::empty_string_as_none_date;
 use crate::vehicle::domain::entity::{Vehicle, VehicleAssignment, VehicleServiceRecord, VehicleStatus};
-
-/// Deserialize empty strings as None for Option<NaiveDate>
-fn empty_string_as_none<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<NaiveDate>, D::Error> {
-    let opt = Option::<String>::deserialize(deserializer)?;
-    match opt.as_deref() {
-        None | Some("") => Ok(None),
-        Some(s) => s.parse::<NaiveDate>().map(Some).map_err(serde::de::Error::custom),
-    }
-}
 
 // ── Requests ──────────────────────────────────────────────────────────────────
 
@@ -23,11 +15,11 @@ pub struct CreateVehicleRequest {
     pub model: String,
     pub year: i32,
     pub color: Option<String>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none_date")]
     pub registration_date: Option<NaiveDate>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none_date")]
     pub registration_expiry: Option<NaiveDate>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none_date")]
     pub insurance_expiry: Option<NaiveDate>,
 }
 
@@ -38,11 +30,11 @@ pub struct UpdateVehicleRequest {
     pub model: String,
     pub year: i32,
     pub color: Option<String>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none_date")]
     pub registration_date: Option<NaiveDate>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none_date")]
     pub registration_expiry: Option<NaiveDate>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none_date")]
     pub insurance_expiry: Option<NaiveDate>,
 }
 

@@ -3,6 +3,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::common::deserialize::{empty_string_as_none_uuid, empty_string_as_none_string};
 use crate::finance::domain::entity::{CashHandover, Expense, ExpenseCategory};
 
 // ── Requests ──────────────────────────────────────────────────────────────────
@@ -16,11 +17,14 @@ pub struct DateRangeQuery {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateExpenseRequest {
+    #[serde(default, deserialize_with = "empty_string_as_none_uuid")]
     pub driver_id: Option<Uuid>,
     pub amount_aed: Decimal,
     pub category: ExpenseCategory,
     pub date: NaiveDate,
+    #[serde(default, deserialize_with = "empty_string_as_none_string")]
     pub receipt_url: Option<String>,
+    #[serde(default, deserialize_with = "empty_string_as_none_string")]
     pub notes: Option<String>,
 }
 
