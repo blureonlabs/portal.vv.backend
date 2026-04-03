@@ -222,63 +222,68 @@ impl ReportService {
     pub async fn dashboard(&self) -> Result<DashboardKpis, AppError> {
         let today = Utc::now().date_naive();
         let month_start = NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap();
+        let thirty_days_ago = today - chrono::Duration::days(29);
 
-        // Revenue + trips MTD
+        // Run ALL queries concurrently to minimize round-trip latency
         #[derive(sqlx::FromRow)]
         struct MtdRow { revenue: Option<Decimal>, trips: Option<i64> }
-        let mtd = sqlx::query_as::<_, MtdRow>(
-            "SELECT SUM(cash_aed + card_aed + other_aed) AS revenue, COUNT(*) AS trips \
-             FROM trips WHERE trip_date BETWEEN $1 AND $2 AND is_deleted = false",
-        )
-        .bind(month_start).bind(today)
-        .fetch_one(&self.pool).await?;
-
-        // Active drivers & vehicles
         #[derive(sqlx::FromRow)]
-        struct CountRow { n: Option<i64> }
-        let active_drivers = sqlx::query_as::<_, CountRow>("SELECT COUNT(*) AS n FROM drivers WHERE is_active = true")
-            .fetch_one(&self.pool).await?.n.unwrap_or(0);
-        let active_vehicles = sqlx::query_as::<_, CountRow>("SELECT COUNT(*) AS n FROM vehicles WHERE status != 'inactive'")
-            .fetch_one(&self.pool).await?.n.unwrap_or(0);
-        let pending_advances = sqlx::query_as::<_, CountRow>("SELECT COUNT(*) AS n FROM advances WHERE status = 'pending'")
-            .fetch_one(&self.pool).await?.n.unwrap_or(0);
-        let pending_leave = sqlx::query_as::<_, CountRow>("SELECT COUNT(*) AS n FROM leave_requests WHERE status = 'pending'")
-            .fetch_one(&self.pool).await?.n.unwrap_or(0);
-
-        // Insurance expiring in ≤30 days
-        #[derive(sqlx::FromRow)]
-        struct InsRow {
-            vehicle_id: Uuid,
-            plate_number: String,
-            insurance_expiry: NaiveDate,
+        struct CountsRow {
+            active_drivers: Option<i64>,
+            active_vehicles: Option<i64>,
+            pending_advances: Option<i64>,
+            pending_leave: Option<i64>,
         }
-        let ins_rows = sqlx::query_as::<_, InsRow>(
-            "SELECT id AS vehicle_id, plate_number, insurance_expiry \
-             FROM vehicles WHERE insurance_expiry IS NOT NULL \
-               AND insurance_expiry BETWEEN $1 AND $1 + INTERVAL '30 days' \
-             ORDER BY insurance_expiry",
-        )
-        .bind(today)
-        .fetch_all(&self.pool).await?;
+        #[derive(sqlx::FromRow)]
+        struct InsRow { vehicle_id: Uuid, plate_number: String, insurance_expiry: NaiveDate }
+        #[derive(sqlx::FromRow)]
+        struct TopRow { driver_id: Uuid, driver_name: String, trips_count: Option<i64>, revenue_aed: Option<Decimal> }
+        #[derive(sqlx::FromRow)]
+        struct DayRow { date: NaiveDate, revenue_aed: Option<Decimal>, trips_count: Option<i64> }
+
+        let pool = &self.pool;
+
+        // Fire all 5 queries concurrently (was 8 sequential)
+        let (mtd, counts, ins_rows, top_rows, day_rows) = tokio::try_join!(
+            sqlx::query_as::<_, MtdRow>(
+                "SELECT SUM(cash_aed + card_aed + other_aed) AS revenue, COUNT(*) AS trips \
+                 FROM trips WHERE trip_date BETWEEN $1 AND $2 AND is_deleted = false"
+            ).bind(month_start).bind(today).fetch_one(pool),
+
+            sqlx::query_as::<_, CountsRow>(
+                "SELECT \
+                   (SELECT COUNT(*) FROM drivers WHERE is_active = true) AS active_drivers, \
+                   (SELECT COUNT(*) FROM vehicles WHERE status != 'inactive') AS active_vehicles, \
+                   (SELECT COUNT(*) FROM advances WHERE status = 'pending') AS pending_advances, \
+                   (SELECT COUNT(*) FROM leave_requests WHERE status = 'pending') AS pending_leave"
+            ).fetch_one(pool),
+
+            sqlx::query_as::<_, InsRow>(
+                "SELECT id AS vehicle_id, plate_number, insurance_expiry \
+                 FROM vehicles WHERE insurance_expiry IS NOT NULL \
+                   AND insurance_expiry BETWEEN $1 AND $1 + INTERVAL '30 days' \
+                 ORDER BY insurance_expiry"
+            ).bind(today).fetch_all(pool),
+
+            sqlx::query_as::<_, TopRow>(
+                "SELECT t.driver_id, p.full_name AS driver_name, COUNT(*) AS trips_count, \
+                        SUM(t.cash_aed + t.card_aed + t.other_aed) AS revenue_aed \
+                 FROM trips t JOIN drivers d ON d.id = t.driver_id JOIN profiles p ON p.id = d.profile_id \
+                 WHERE t.trip_date BETWEEN $1 AND $2 AND t.is_deleted = false \
+                 GROUP BY t.driver_id, p.full_name ORDER BY revenue_aed DESC LIMIT 5"
+            ).bind(month_start).bind(today).fetch_all(pool),
+
+            sqlx::query_as::<_, DayRow>(
+                "SELECT trip_date AS date, SUM(cash_aed + card_aed + other_aed) AS revenue_aed, COUNT(*) AS trips_count \
+                 FROM trips WHERE trip_date BETWEEN $1 AND $2 AND is_deleted = false \
+                 GROUP BY trip_date ORDER BY trip_date"
+            ).bind(thirty_days_ago).bind(today).fetch_all(pool),
+        )?;
 
         let insurance_expiring_soon = ins_rows.into_iter().map(|r| {
             let days_left = (r.insurance_expiry - today).num_days();
             InsuranceAlert { vehicle_id: r.vehicle_id, plate_number: r.plate_number, insurance_expiry: r.insurance_expiry, days_left }
         }).collect();
-
-        // Top 5 drivers by revenue MTD
-        #[derive(sqlx::FromRow)]
-        struct TopRow { driver_id: Uuid, driver_name: String, trips_count: Option<i64>, revenue_aed: Option<Decimal> }
-        let top_rows = sqlx::query_as::<_, TopRow>(
-            "SELECT t.driver_id, p.full_name AS driver_name, COUNT(*) AS trips_count, \
-                    SUM(t.cash_aed + t.card_aed + t.other_aed) AS revenue_aed \
-             FROM trips t JOIN drivers d ON d.id = t.driver_id JOIN profiles p ON p.id = d.profile_id \
-             WHERE t.trip_date BETWEEN $1 AND $2 AND t.is_deleted = false \
-             GROUP BY t.driver_id, p.full_name \
-             ORDER BY revenue_aed DESC LIMIT 5",
-        )
-        .bind(month_start).bind(today)
-        .fetch_all(&self.pool).await?;
 
         let top_drivers = top_rows.into_iter().map(|r| DriverPerfRow {
             driver_id: r.driver_id,
@@ -286,17 +291,6 @@ impl ReportService {
             trips_count: r.trips_count.unwrap_or(0),
             revenue_aed: r.revenue_aed.unwrap_or(Decimal::ZERO),
         }).collect();
-
-        // Daily revenue last 30 days
-        #[derive(sqlx::FromRow)]
-        struct DayRow { date: NaiveDate, revenue_aed: Option<Decimal>, trips_count: Option<i64> }
-        let day_rows = sqlx::query_as::<_, DayRow>(
-            "SELECT trip_date AS date, SUM(cash_aed + card_aed + other_aed) AS revenue_aed, COUNT(*) AS trips_count \
-             FROM trips WHERE trip_date BETWEEN $1 AND $2 AND is_deleted = false \
-             GROUP BY trip_date ORDER BY trip_date",
-        )
-        .bind(today - chrono::Duration::days(29)).bind(today)
-        .fetch_all(&self.pool).await?;
 
         let revenue_trend = day_rows.into_iter().map(|r| DayRevenue {
             date: r.date,
@@ -307,10 +301,10 @@ impl ReportService {
         Ok(DashboardKpis {
             revenue_mtd: mtd.revenue.unwrap_or(Decimal::ZERO),
             trips_mtd: mtd.trips.unwrap_or(0),
-            active_drivers,
-            active_vehicles,
-            pending_advances,
-            pending_leave,
+            active_drivers: counts.active_drivers.unwrap_or(0),
+            active_vehicles: counts.active_vehicles.unwrap_or(0),
+            pending_advances: counts.pending_advances.unwrap_or(0),
+            pending_leave: counts.pending_leave.unwrap_or(0),
             insurance_expiring_soon,
             top_drivers,
             revenue_trend,
