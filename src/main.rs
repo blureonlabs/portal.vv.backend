@@ -213,10 +213,10 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let report_svc_data = web::Data::new(Arc::clone(&report_svc));
     let salary_svc_data = web::Data::new(Arc::clone(&salary_svc));
 
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         let cors = actix_cors::Cors::default()
-            .allowed_origin(&config_data.frontend_url)
-            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
+            .allow_any_origin()
+            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
             .allowed_headers(vec!["Authorization", "Content-Type"])
             .max_age(3600);
 
@@ -241,6 +241,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
             .route("/health", web::get().to(health_check))
             .service(
                 web::scope("/api/v1")
+                    .route("/health", web::get().to(health_check))
                     .configure(auth::routes)
                     .configure(driver::routes)
                     .configure(vehicle::routes)
@@ -257,9 +258,10 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
                     .configure(portal::routes)
             )
     })
-    .bind(&addr)?
-    .run()
-    .await?;
+    .bind(&addr)?;
+
+    info!("Server bound successfully to {}", addr);
+    server.run().await?;
 
     Ok(())
 }
