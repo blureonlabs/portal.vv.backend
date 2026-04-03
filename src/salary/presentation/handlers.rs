@@ -48,7 +48,7 @@ pub async fn generate_salary(
         room_rent_aed:           body.room_rent_aed,
         generated_by:            user.id,
     };
-    let salary = svc.generate(req).await?;
+    let salary = svc.generate(&user.role, req).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(SalaryResponse::from(salary))))
 }
 

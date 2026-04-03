@@ -4,6 +4,7 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
+use crate::audit::application::service::AuditService;
 use crate::common::error::AppError;
 use crate::common::types::Role;
 use crate::finance::domain::{
@@ -13,11 +14,12 @@ use crate::finance::domain::{
 
 pub struct FinanceService {
     repo: Arc<dyn FinanceRepository>,
+    audit: Arc<AuditService>,
 }
 
 impl FinanceService {
-    pub fn new(repo: Arc<dyn FinanceRepository>) -> Self {
-        Self { repo }
+    pub fn new(repo: Arc<dyn FinanceRepository>, audit: Arc<AuditService>) -> Self {
+        Self { repo, audit }
     }
 
     pub async fn list_expenses(
@@ -51,7 +53,7 @@ impl FinanceService {
             Role::SuperAdmin | Role::Accountant => {}
             _ => return Err(AppError::Forbidden("Only super_admin or accountant can log expenses".into())),
         }
-        self.repo
+        let expense = self.repo
             .create_expense(CreateExpense {
                 driver_id,
                 entered_by: actor_id,
@@ -61,7 +63,12 @@ impl FinanceService {
                 receipt_url,
                 notes,
             })
-            .await
+            .await?;
+
+        self.audit.log(actor_id, actor_role, "expense", Some(expense.id), "expense.created",
+            Some(serde_json::json!({ "driver_id": expense.driver_id, "amount_aed": expense.amount_aed, "category": format!("{:?}", expense.category) }))).await?;
+
+        Ok(expense)
     }
 
     pub async fn list_handovers(
@@ -91,12 +98,17 @@ impl FinanceService {
             Role::SuperAdmin | Role::Accountant => {}
             _ => return Err(AppError::Forbidden("Only super_admin or accountant can record handovers".into())),
         }
-        self.repo
+        let handover = self.repo
             .create_handover(CreateHandover {
                 driver_id,
                 amount_aed,
                 verified_by: actor_id,
             })
-            .await
+            .await?;
+
+        self.audit.log(actor_id, actor_role, "handover", Some(handover.id), "handover.created",
+            Some(serde_json::json!({ "driver_id": driver_id, "amount_aed": amount_aed }))).await?;
+
+        Ok(handover)
     }
 }

@@ -159,18 +159,19 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let vehicle_svc = Arc::new(VehicleService::new(Arc::clone(&vehicle_repo), Arc::clone(&audit_svc)));
 
     let trip_repo = Arc::new(PgTripRepository::new(db.pg_pool().clone()));
-    let trip_svc = Arc::new(TripService::new(trip_repo));
+    let trip_svc = Arc::new(TripService::new(trip_repo, Arc::clone(&audit_svc)));
 
     let finance_repo = Arc::new(PgFinanceRepository::new(db.pg_pool().clone()));
-    let finance_svc = Arc::new(FinanceService::new(finance_repo));
+    let finance_svc = Arc::new(FinanceService::new(finance_repo, Arc::clone(&audit_svc)));
 
     let advance_repo = Arc::new(PgAdvanceRepository::new(db.pg_pool().clone()));
     let advance_svc = Arc::new(AdvanceService::new(
-        Arc::clone(&advance_repo) as Arc<dyn advance::domain::repository::AdvanceRepository>
+        Arc::clone(&advance_repo) as Arc<dyn advance::domain::repository::AdvanceRepository>,
+        Arc::clone(&audit_svc),
     ));
 
     let hr_repo = Arc::new(PgHrRepository::new(db.pg_pool().clone()));
-    let hr_svc = Arc::new(HrService::new(hr_repo));
+    let hr_svc = Arc::new(HrService::new(hr_repo, Arc::clone(&audit_svc)));
 
     let invoice_repo = Arc::new(PgInvoiceRepository::new(db.pg_pool().clone()));
     let pdf_svc = Arc::new(PdfService::new(&config));
@@ -186,7 +187,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
         .map(|r| r.value)
         .unwrap_or_else(|| "Dubai, UAE".to_string());
 
-    let invoice_svc = Arc::new(InvoiceService::new(invoice_repo, pdf_svc, company_name, company_address));
+    let invoice_svc = Arc::new(InvoiceService::new(invoice_repo, pdf_svc, Arc::clone(&audit_svc), company_name, company_address));
 
     let settings_repo: Arc<dyn settings::domain::repository::SettingsRepository> =
         Arc::new(PgSettingsRepository::new(db.pg_pool().clone()));
@@ -200,6 +201,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
         salary_repo,
         Arc::clone(&settings_repo),
         deduction_port,
+        Arc::clone(&audit_svc),
     ));
 
     let owner_repo: Arc<dyn owner::domain::repository::OwnerRepository> =

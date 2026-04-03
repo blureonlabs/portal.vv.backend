@@ -40,6 +40,7 @@ pub async fn submit_leave(
     let actor_driver_id = resolve_driver_id(db.pg_pool(), user.id).await?;
     let request = svc
         .submit(
+            user.id,
             &user.role,
             actor_driver_id,
             body.driver_id,

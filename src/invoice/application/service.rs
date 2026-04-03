@@ -4,6 +4,7 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
+use crate::audit::application::service::AuditService;
 use crate::common::{error::AppError, types::Role};
 use crate::invoice::domain::{
     entity::{CreateInvoice, Invoice, LineItem},
@@ -14,6 +15,7 @@ use crate::invoice::infrastructure::PdfService;
 pub struct InvoiceService {
     repo: Arc<dyn InvoiceRepository>,
     pdf: Arc<PdfService>,
+    audit: Arc<AuditService>,
     company_name: String,
     company_address: String,
 }
@@ -22,10 +24,11 @@ impl InvoiceService {
     pub fn new(
         repo: Arc<dyn InvoiceRepository>,
         pdf: Arc<PdfService>,
+        audit: Arc<AuditService>,
         company_name: String,
         company_address: String,
     ) -> Self {
-        Self { repo, pdf, company_name, company_address }
+        Self { repo, pdf, audit, company_name, company_address }
     }
 
     pub async fn list(
@@ -86,10 +89,10 @@ impl InvoiceService {
             .await
             .ok(); // PDF upload failure is non-fatal; invoice is still created
 
-        self.repo
+        let invoice = self.repo
             .create(CreateInvoice {
                 driver_id,
-                invoice_no,
+                invoice_no: invoice_no.clone(),
                 period_start,
                 period_end,
                 line_items,
@@ -97,6 +100,15 @@ impl InvoiceService {
                 pdf_url,
                 generated_by: actor_id,
             })
-            .await
+            .await?;
+
+        self.audit.log(actor_id, actor_role, "invoice", Some(invoice.id), "invoice.generated",
+            Some(serde_json::json!({
+                "driver_id": driver_id,
+                "invoice_no": invoice_no,
+                "total_aed": total_aed
+            }))).await?;
+
+        Ok(invoice)
     }
 }

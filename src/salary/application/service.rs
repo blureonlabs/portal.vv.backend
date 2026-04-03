@@ -5,7 +5,8 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::FromPrimitive;
 use uuid::Uuid;
 
-use crate::common::{error::AppError, ports::DeductionPort, types::SalaryType};
+use crate::audit::application::service::AuditService;
+use crate::common::{error::AppError, ports::DeductionPort, types::{Role, SalaryType}};
 use crate::salary::domain::{
     entity::{CreateSalary, Salary},
     repository::SalaryRepository,
@@ -16,6 +17,7 @@ pub struct SalaryService {
     repo: Arc<dyn SalaryRepository>,
     settings: Arc<dyn SettingsRepository>,
     deduction_port: Arc<dyn DeductionPort>,
+    audit: Arc<AuditService>,
 }
 
 impl SalaryService {
@@ -23,8 +25,9 @@ impl SalaryService {
         repo: Arc<dyn SalaryRepository>,
         settings: Arc<dyn SettingsRepository>,
         deduction_port: Arc<dyn DeductionPort>,
+        audit: Arc<AuditService>,
     ) -> Self {
-        Self { repo, settings, deduction_port }
+        Self { repo, settings, deduction_port, audit }
     }
 
     pub async fn list(
@@ -40,7 +43,7 @@ impl SalaryService {
     }
 
     /// Re-computes salary on every call (idempotent upsert).
-    pub async fn generate(&self, req: GenerateRequest) -> Result<Salary, AppError> {
+    pub async fn generate(&self, actor_role: &Role, req: GenerateRequest) -> Result<Salary, AppError> {
         // 1. Load settings
         let settings = self.settings.list().await?;
         let get_setting = |key: &str, default: f64| -> Decimal {
@@ -144,7 +147,16 @@ impl SalaryService {
             generated_by:            req.generated_by,
         };
 
-        self.repo.upsert(payload).await
+        let salary = self.repo.upsert(payload).await?;
+
+        self.audit.log(req.generated_by, actor_role, "salary", Some(salary.id), "salary.generated",
+            Some(serde_json::json!({
+                "driver_id": req.driver_id,
+                "period_month": req.period_month,
+                "net_payable_aed": net_payable_aed
+            }))).await?;
+
+        Ok(salary)
     }
 }
 

@@ -5,6 +5,7 @@ use csv::ReaderBuilder;
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
+use crate::audit::application::service::AuditService;
 use crate::common::error::AppError;
 use crate::common::types::Role;
 use crate::trip::domain::{
@@ -14,11 +15,12 @@ use crate::trip::domain::{
 
 pub struct TripService {
     pub repo: Arc<dyn TripRepository>,
+    pub audit: Arc<AuditService>,
 }
 
 impl TripService {
-    pub fn new(repo: Arc<dyn TripRepository>) -> Self {
-        Self { repo }
+    pub fn new(repo: Arc<dyn TripRepository>, audit: Arc<AuditService>) -> Self {
+        Self { repo, audit }
     }
 
     pub async fn list(
@@ -79,7 +81,7 @@ impl TripService {
             )));
         }
 
-        self.repo
+        let trip = self.repo
             .create(CreateTrip {
                 driver_id,
                 vehicle_id,
@@ -91,11 +93,17 @@ impl TripService {
                 source: TripSource::Manual,
                 notes,
             })
-            .await
+            .await?;
+
+        self.audit.log(actor_id, actor_role, "trip", Some(trip.id), "trip.created",
+            Some(serde_json::json!({ "driver_id": driver_id, "trip_date": trip_date }))).await?;
+
+        Ok(trip)
     }
 
     pub async fn delete(
         &self,
+        actor_id: Uuid,
         actor_role: &Role,
         id: Uuid,
     ) -> Result<(), AppError> {
@@ -103,7 +111,9 @@ impl TripService {
             Role::SuperAdmin | Role::Accountant => {}
             _ => return Err(AppError::Forbidden("Only super_admin or accountant can delete trips".into())),
         }
-        self.repo.soft_delete(id).await
+        self.repo.soft_delete(id).await?;
+        self.audit.log(actor_id, actor_role, "trip", Some(id), "trip.deleted", None).await?;
+        Ok(())
     }
 
     /// Parse CSV, validate each row against daily cap, return preview.
@@ -193,6 +203,7 @@ impl TripService {
     pub async fn csv_import(
         &self,
         actor_id: Uuid,
+        actor_role: &Role,
         driver_id: Uuid,
         preview_rows: Vec<CsvPreviewRow>,
     ) -> Result<Vec<Trip>, AppError> {
@@ -215,7 +226,13 @@ impl TripService {
             })
             .collect();
 
-        self.repo.bulk_insert(to_insert).await
+        let count = to_insert.len();
+        let trips = self.repo.bulk_insert(to_insert).await?;
+
+        self.audit.log(actor_id, actor_role, "trip", None, "trip.csv_imported",
+            Some(serde_json::json!({ "driver_id": driver_id, "rows_imported": count }))).await?;
+
+        Ok(trips)
     }
 }
 

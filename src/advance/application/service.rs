@@ -4,6 +4,7 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
+use crate::audit::application::service::AuditService;
 use crate::common::{error::AppError, types::Role};
 use crate::advance::domain::{
     entity::{Advance, AdvanceStatus, ApproveAdvance, CreateAdvance, PayAdvance, PaymentMethod, RejectAdvance},
@@ -12,11 +13,12 @@ use crate::advance::domain::{
 
 pub struct AdvanceService {
     repo: Arc<dyn AdvanceRepository>,
+    audit: Arc<AuditService>,
 }
 
 impl AdvanceService {
-    pub fn new(repo: Arc<dyn AdvanceRepository>) -> Self {
-        Self { repo }
+    pub fn new(repo: Arc<dyn AdvanceRepository>, audit: Arc<AuditService>) -> Self {
+        Self { repo, audit }
     }
 
     pub async fn list(
@@ -37,6 +39,7 @@ impl AdvanceService {
 
     pub async fn request(
         &self,
+        actor_id: Uuid,
         actor_role: &Role,
         actor_driver_id: Option<Uuid>,
         driver_id: Option<Uuid>,
@@ -59,13 +62,18 @@ impl AdvanceService {
             ));
         }
 
-        self.repo
+        let advance = self.repo
             .create(CreateAdvance {
                 driver_id: target_driver_id,
                 amount_aed,
                 reason,
             })
-            .await
+            .await?;
+
+        self.audit.log(actor_id, actor_role, "advance", Some(advance.id), "advance.requested",
+            Some(serde_json::json!({ "driver_id": target_driver_id, "amount_aed": amount_aed }))).await?;
+
+        Ok(advance)
     }
 
     pub async fn approve(
@@ -78,7 +86,12 @@ impl AdvanceService {
             Role::SuperAdmin | Role::Accountant => {}
             _ => return Err(AppError::Forbidden("Only super_admin or accountant can approve advances".into())),
         }
-        self.repo.approve(ApproveAdvance { id: advance_id, actioned_by: actor_id }).await
+        let advance = self.repo.approve(ApproveAdvance { id: advance_id, actioned_by: actor_id }).await?;
+
+        self.audit.log(actor_id, actor_role, "advance", Some(advance_id), "advance.approved",
+            Some(serde_json::json!({ "driver_id": advance.driver_id }))).await?;
+
+        Ok(advance)
     }
 
     pub async fn reject(
@@ -92,13 +105,18 @@ impl AdvanceService {
             Role::SuperAdmin | Role::Accountant => {}
             _ => return Err(AppError::Forbidden("Only super_admin or accountant can reject advances".into())),
         }
-        self.repo
+        let advance = self.repo
             .reject(RejectAdvance {
                 id: advance_id,
                 actioned_by: actor_id,
-                rejection_reason,
+                rejection_reason: rejection_reason.clone(),
             })
-            .await
+            .await?;
+
+        self.audit.log(actor_id, actor_role, "advance", Some(advance_id), "advance.rejected",
+            Some(serde_json::json!({ "driver_id": advance.driver_id, "reason": rejection_reason }))).await?;
+
+        Ok(advance)
     }
 
     pub async fn pay(
@@ -114,7 +132,7 @@ impl AdvanceService {
             Role::SuperAdmin | Role::Accountant => {}
             _ => return Err(AppError::Forbidden("Only super_admin or accountant can mark advances paid".into())),
         }
-        self.repo
+        let advance = self.repo
             .pay(PayAdvance {
                 id: advance_id,
                 actioned_by: actor_id,
@@ -122,6 +140,11 @@ impl AdvanceService {
                 method,
                 salary_period,
             })
-            .await
+            .await?;
+
+        self.audit.log(actor_id, actor_role, "advance", Some(advance_id), "advance.paid",
+            Some(serde_json::json!({ "driver_id": advance.driver_id, "payment_date": payment_date }))).await?;
+
+        Ok(advance)
     }
 }

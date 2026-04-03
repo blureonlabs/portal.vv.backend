@@ -3,6 +3,7 @@ use std::sync::Arc;
 use chrono::NaiveDate;
 use uuid::Uuid;
 
+use crate::audit::application::service::AuditService;
 use crate::common::{error::AppError, types::Role};
 use crate::hr::domain::{
     entity::{ActionLeaveRequest, CreateLeaveRequest, LeaveRequest, LeaveStatus, LeaveType},
@@ -11,11 +12,12 @@ use crate::hr::domain::{
 
 pub struct HrService {
     repo: Arc<dyn HrRepository>,
+    audit: Arc<AuditService>,
 }
 
 impl HrService {
-    pub fn new(repo: Arc<dyn HrRepository>) -> Self {
-        Self { repo }
+    pub fn new(repo: Arc<dyn HrRepository>, audit: Arc<AuditService>) -> Self {
+        Self { repo, audit }
     }
 
     pub async fn list(
@@ -36,6 +38,7 @@ impl HrService {
 
     pub async fn submit(
         &self,
+        actor_id: Uuid,
         actor_role: &Role,
         actor_driver_id: Option<Uuid>,
         driver_id: Option<Uuid>,
@@ -65,7 +68,7 @@ impl HrService {
             ));
         }
 
-        self.repo
+        let request = self.repo
             .create(CreateLeaveRequest {
                 driver_id: target_driver_id,
                 r#type: leave_type,
@@ -73,7 +76,12 @@ impl HrService {
                 to_date,
                 reason,
             })
-            .await
+            .await?;
+
+        self.audit.log(actor_id, actor_role, "leave", Some(request.id), "leave.submitted",
+            Some(serde_json::json!({ "driver_id": target_driver_id, "from_date": from_date, "to_date": to_date }))).await?;
+
+        Ok(request)
     }
 
     pub async fn approve(
@@ -98,9 +106,14 @@ impl HrService {
             ));
         }
 
-        self.repo
+        let leave = self.repo
             .approve(ActionLeaveRequest { id: request_id, actioned_by: actor_id, rejection_reason: None })
-            .await
+            .await?;
+
+        self.audit.log(actor_id, actor_role, "leave", Some(request_id), "leave.approved",
+            Some(serde_json::json!({ "driver_id": leave.driver_id }))).await?;
+
+        Ok(leave)
     }
 
     pub async fn reject(
@@ -114,12 +127,17 @@ impl HrService {
             Role::SuperAdmin | Role::Hr => {}
             _ => return Err(AppError::Forbidden("Only super_admin or hr can reject leave".into())),
         }
-        self.repo
+        let leave = self.repo
             .reject(ActionLeaveRequest {
                 id: request_id,
                 actioned_by: actor_id,
-                rejection_reason: Some(rejection_reason),
+                rejection_reason: Some(rejection_reason.clone()),
             })
-            .await
+            .await?;
+
+        self.audit.log(actor_id, actor_role, "leave", Some(request_id), "leave.rejected",
+            Some(serde_json::json!({ "driver_id": leave.driver_id, "reason": rejection_reason }))).await?;
+
+        Ok(leave)
     }
 }

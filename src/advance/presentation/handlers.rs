@@ -39,7 +39,7 @@ pub async fn request_advance(
     let body = body.into_inner();
     let actor_driver_id = resolve_driver_id(db.pg_pool(), user.id).await?;
     let advance = svc
-        .request(&user.role, actor_driver_id, body.driver_id, body.amount_aed, body.reason)
+        .request(user.id, &user.role, actor_driver_id, body.driver_id, body.amount_aed, body.reason)
         .await?;
     Ok(HttpResponse::Created().json(ApiResponse::ok(AdvanceResponse::from(advance))))
 }

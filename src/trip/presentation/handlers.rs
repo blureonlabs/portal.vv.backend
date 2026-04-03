@@ -71,7 +71,7 @@ pub async fn delete_trip(
     svc: web::Data<Arc<TripService>>,
     path: web::Path<Uuid>,
 ) -> Result<HttpResponse, AppError> {
-    svc.delete(&user.role, path.into_inner()).await?;
+    svc.delete(user.id, &user.role, path.into_inner()).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(())))
 }
 
@@ -119,7 +119,7 @@ pub async fn csv_import(
         cap_warning: r.cap_warning,
     }).collect();
 
-    let trips = svc.csv_import(user.id, body.driver_id, preview_rows).await?;
+    let trips = svc.csv_import(user.id, &user.role, body.driver_id, preview_rows).await?;
     let resp: Vec<TripResponse> = trips.into_iter().map(TripResponse::from).collect();
     Ok(HttpResponse::Created().json(ApiResponse::ok(resp)))
 }
