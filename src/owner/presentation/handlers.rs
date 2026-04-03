@@ -41,7 +41,7 @@ pub async fn create_owner_with_account(
     user: CurrentUser,
     svc: web::Data<Arc<OwnerService>>,
     supabase: web::Data<Arc<SupabaseAdminClient>>,
-    config: web::Data<crate::config::AppConfig>,
+    _config: web::Data<crate::config::AppConfig>,
     auth_repo: web::Data<Arc<dyn crate::auth::domain::repository::AuthRepository>>,
     body: web::Json<CreateOwnerWithAccountRequest>,
 ) -> Result<HttpResponse, crate::common::error::AppError> {

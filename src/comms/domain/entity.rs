@@ -18,6 +18,7 @@ pub enum BroadcastTarget { AllDrivers, SelectedDrivers }
 pub enum BroadcastStatus { Draft, Sending, Sent, Failed }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Broadcast {
     pub id: Uuid,
     pub subject: String,
