@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, sqlx::Type, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "leave_type", rename_all = "snake_case")]
 pub enum LeaveType {
     Leave,
@@ -10,6 +11,7 @@ pub enum LeaveType {
 }
 
 #[derive(Debug, Clone, sqlx::Type, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "leave_status", rename_all = "snake_case")]
 pub enum LeaveStatus {
     Pending,

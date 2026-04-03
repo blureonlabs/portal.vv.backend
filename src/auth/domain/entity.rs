@@ -15,6 +15,7 @@ pub struct Profile {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "invite_status", rename_all = "snake_case")]
 pub enum InviteStatus {
     Pending,

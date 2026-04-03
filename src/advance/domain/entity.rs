@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, sqlx::Type, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "advance_status", rename_all = "snake_case")]
 pub enum AdvanceStatus {
     Pending,
@@ -13,6 +14,7 @@ pub enum AdvanceStatus {
 }
 
 #[derive(Debug, Clone, sqlx::Type, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "payment_method", rename_all = "snake_case")]
 pub enum PaymentMethod {
     Cash,
