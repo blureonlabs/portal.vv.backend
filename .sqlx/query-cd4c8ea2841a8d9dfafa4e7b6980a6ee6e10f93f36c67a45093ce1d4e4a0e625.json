@@ -1,0 +1,109 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT v.id, v.plate_number, v.make, v.model, v.year, v.color,\n                      v.registration_date, v.registration_expiry, v.insurance_expiry,\n                      v.status as \"status: VehicleStatus\", v.is_active, v.created_at,\n                      va.driver_id as assigned_driver_id,\n                      p.full_name as assigned_driver_name\n               FROM vehicles v\n               LEFT JOIN vehicle_assignments va ON va.vehicle_id = v.id AND va.unassigned_at IS NULL\n               LEFT JOIN drivers d ON d.id = va.driver_id\n               LEFT JOIN profiles p ON p.id = d.profile_id\n               ORDER BY v.plate_number",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "plate_number",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "make",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "model",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "year",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "color",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "registration_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 7,
+        "name": "registration_expiry",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 8,
+        "name": "insurance_expiry",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 9,
+        "name": "status: VehicleStatus",
+        "type_info": {
+          "Custom": {
+            "name": "vehicle_status",
+            "kind": {
+              "Enum": [
+                "available",
+                "assigned",
+                "inactive"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "is_active",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 12,
+        "name": "assigned_driver_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 13,
+        "name": "assigned_driver_name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "cd4c8ea2841a8d9dfafa4e7b6980a6ee6e10f93f36c67a45093ce1d4e4a0e625"
+}

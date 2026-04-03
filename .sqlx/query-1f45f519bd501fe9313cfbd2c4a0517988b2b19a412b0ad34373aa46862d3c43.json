@@ -1,0 +1,110 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH ins AS (\n                INSERT INTO expenses (driver_id, entered_by, amount_aed, category, date, receipt_url, notes)\n                VALUES ($1, $2, $3, $4, $5, $6, $7)\n                RETURNING *\n            )\n            SELECT\n                ins.id, ins.driver_id,\n                p.full_name AS driver_name,\n                ins.entered_by,\n                ins.amount_aed,\n                ins.category AS \"category: ExpenseCategory\",\n                ins.date,\n                ins.receipt_url, ins.notes, ins.created_at\n            FROM ins\n            LEFT JOIN drivers d ON d.id = ins.driver_id\n            LEFT JOIN profiles p ON p.id = d.profile_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "driver_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "driver_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "entered_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "amount_aed",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 5,
+        "name": "category: ExpenseCategory",
+        "type_info": {
+          "Custom": {
+            "name": "expense_category",
+            "kind": {
+              "Enum": [
+                "fuel",
+                "maintenance",
+                "toll",
+                "insurance",
+                "fines",
+                "other"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 7,
+        "name": "receipt_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "notes",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Numeric",
+        {
+          "Custom": {
+            "name": "expense_category",
+            "kind": {
+              "Enum": [
+                "fuel",
+                "maintenance",
+                "toll",
+                "insurance",
+                "fines",
+                "other"
+              ]
+            }
+          }
+        },
+        "Date",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "1f45f519bd501fe9313cfbd2c4a0517988b2b19a412b0ad34373aa46862d3c43"
+}

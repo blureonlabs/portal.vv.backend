@@ -1,0 +1,128 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                a.id, a.driver_id,\n                p.full_name AS driver_name,\n                a.amount_aed,\n                a.reason,\n                a.status AS \"status: AdvanceStatus\",\n                a.rejection_reason,\n                a.payment_date,\n                a.method AS \"method: PaymentMethod\",\n                a.carry_forward_aed,\n                a.salary_period,\n                a.actioned_by,\n                pa.full_name AS actioned_by_name,\n                a.created_at,\n                a.updated_at\n            FROM advances a\n            JOIN drivers d ON d.id = a.driver_id\n            JOIN profiles p ON p.id = d.profile_id\n            LEFT JOIN profiles pa ON pa.id = a.actioned_by\n            WHERE a.id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "driver_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "driver_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "amount_aed",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 4,
+        "name": "reason",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "status: AdvanceStatus",
+        "type_info": {
+          "Custom": {
+            "name": "advance_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "approved",
+                "rejected",
+                "paid"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "rejection_reason",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "payment_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 8,
+        "name": "method: PaymentMethod",
+        "type_info": {
+          "Custom": {
+            "name": "payment_method",
+            "kind": {
+              "Enum": [
+                "cash",
+                "bank_transfer"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "carry_forward_aed",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 10,
+        "name": "salary_period",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 11,
+        "name": "actioned_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 12,
+        "name": "actioned_by_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 14,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "e951ce8a4325b7980c41bf424f4e65c53ceeb2e24549bfc7daa95dba761ba264"
+}

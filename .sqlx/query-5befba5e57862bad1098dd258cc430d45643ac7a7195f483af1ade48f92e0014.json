@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO vehicle_service (vehicle_id, service_date, type, description, cost, next_due, logged_by)\n               VALUES ($1, $2, $3, $4, $5, $6, $7)\n               RETURNING id, vehicle_id, service_date, type as service_type,\n                         description, cost, next_due, logged_by, created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "vehicle_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "service_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 3,
+        "name": "service_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "cost",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 6,
+        "name": "next_due",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 7,
+        "name": "logged_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Text",
+        "Text",
+        "Numeric",
+        "Date",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "5befba5e57862bad1098dd258cc430d45643ac7a7195f483af1ade48f92e0014"
+}

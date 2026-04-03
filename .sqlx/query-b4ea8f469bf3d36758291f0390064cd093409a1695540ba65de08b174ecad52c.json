@@ -1,0 +1,117 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH upd AS (\n                UPDATE leave_requests\n                SET status = 'rejected',\n                    rejection_reason = $3,\n                    actioned_by = $2,\n                    updated_at = NOW()\n                WHERE id = $1 AND status = 'pending'\n                RETURNING *\n            )\n            SELECT\n                upd.id, upd.driver_id,\n                p.full_name AS driver_name,\n                upd.type AS \"type: LeaveType\",\n                upd.from_date, upd.to_date, upd.reason,\n                upd.status AS \"status: LeaveStatus\",\n                upd.actioned_by,\n                pa.full_name AS actioned_by_name,\n                upd.rejection_reason,\n                upd.created_at, upd.updated_at\n            FROM upd\n            JOIN drivers d ON d.id = upd.driver_id\n            JOIN profiles p ON p.id = d.profile_id\n            LEFT JOIN profiles pa ON pa.id = upd.actioned_by\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "driver_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "driver_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "type: LeaveType",
+        "type_info": {
+          "Custom": {
+            "name": "leave_type",
+            "kind": {
+              "Enum": [
+                "leave",
+                "permission"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "from_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 5,
+        "name": "to_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 6,
+        "name": "reason",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "status: LeaveStatus",
+        "type_info": {
+          "Custom": {
+            "name": "leave_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "approved",
+                "rejected"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "actioned_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 9,
+        "name": "actioned_by_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "rejection_reason",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 12,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "b4ea8f469bf3d36758291f0390064cd093409a1695540ba65de08b174ecad52c"
+}

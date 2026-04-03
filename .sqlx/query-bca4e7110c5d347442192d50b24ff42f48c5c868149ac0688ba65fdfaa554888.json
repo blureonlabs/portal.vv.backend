@@ -1,0 +1,94 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH ins AS (\n                INSERT INTO drivers (profile_id, nationality, salary_type)\n                VALUES ($1, $2, $3)\n                RETURNING id, profile_id, nationality, salary_type, is_active, self_entry_enabled, created_at\n               )\n               SELECT ins.id, ins.profile_id, p.full_name, p.email,\n                      ins.nationality, ins.salary_type as \"salary_type: SalaryType\",\n                      ins.is_active, ins.self_entry_enabled, ins.created_at\n               FROM ins JOIN profiles p ON p.id = ins.profile_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "profile_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "full_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "email",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "nationality",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "salary_type: SalaryType",
+        "type_info": {
+          "Custom": {
+            "name": "salary_type",
+            "kind": {
+              "Enum": [
+                "commission",
+                "target_high",
+                "target_low"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "is_active",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "self_entry_enabled",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        {
+          "Custom": {
+            "name": "salary_type",
+            "kind": {
+              "Enum": [
+                "commission",
+                "target_high",
+                "target_low"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "bca4e7110c5d347442192d50b24ff42f48c5c868149ac0688ba65fdfaa554888"
+}

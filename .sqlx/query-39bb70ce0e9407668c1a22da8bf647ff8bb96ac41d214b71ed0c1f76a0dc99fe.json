@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT va.id, va.vehicle_id, va.driver_id, p.full_name as driver_name,\n                      va.assigned_at, va.unassigned_at, va.assigned_by\n               FROM vehicle_assignments va\n               JOIN drivers d ON d.id = va.driver_id\n               JOIN profiles p ON p.id = d.profile_id\n               WHERE va.vehicle_id = $1\n               ORDER BY va.assigned_at DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "vehicle_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "driver_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "driver_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "assigned_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "unassigned_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "assigned_by",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "39bb70ce0e9407668c1a22da8bf647ff8bb96ac41d214b71ed0c1f76a0dc99fe"
+}

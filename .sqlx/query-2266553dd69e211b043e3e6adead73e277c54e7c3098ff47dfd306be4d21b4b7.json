@@ -1,0 +1,124 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH ins AS (\n                INSERT INTO trips (driver_id, vehicle_id, entered_by, trip_date, cash_aed, card_aed, other_aed, source, notes)\n                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)\n                RETURNING *\n            )\n            SELECT\n                ins.id, ins.driver_id,\n                p.full_name AS driver_name,\n                ins.vehicle_id, ins.entered_by,\n                ins.trip_date,\n                ins.cash_aed, ins.card_aed, ins.other_aed,\n                ins.source AS \"source: TripSource\",\n                ins.notes, ins.is_deleted, ins.created_at\n            FROM ins\n            JOIN drivers d ON d.id = ins.driver_id\n            JOIN profiles p ON p.id = d.profile_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "driver_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "driver_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "vehicle_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "entered_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 5,
+        "name": "trip_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 6,
+        "name": "cash_aed",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 7,
+        "name": "card_aed",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 8,
+        "name": "other_aed",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 9,
+        "name": "source: TripSource",
+        "type_info": {
+          "Custom": {
+            "name": "trip_source",
+            "kind": {
+              "Enum": [
+                "manual",
+                "csv_import",
+                "uber_api"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "notes",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "is_deleted",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 12,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Date",
+        "Numeric",
+        "Numeric",
+        "Numeric",
+        {
+          "Custom": {
+            "name": "trip_source",
+            "kind": {
+              "Enum": [
+                "manual",
+                "csv_import",
+                "uber_api"
+              ]
+            }
+          }
+        },
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "2266553dd69e211b043e3e6adead73e277c54e7c3098ff47dfd306be4d21b4b7"
+}

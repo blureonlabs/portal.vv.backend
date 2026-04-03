@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO profiles (id, role, full_name, email) VALUES ($1, 'super_admin', 'Super Admin', $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ed7c599297e963419da65a280da1bb401797744edd4d709dd08cc3502d6f072e"
+}

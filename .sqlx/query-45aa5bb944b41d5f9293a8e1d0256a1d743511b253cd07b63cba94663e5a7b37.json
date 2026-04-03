@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT COUNT(*) AS count FROM leave_requests\n            WHERE driver_id = $1\n              AND status = 'approved'\n              AND from_date <= $3\n              AND to_date >= $2\n              AND ($4::uuid IS NULL OR id != $4)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Date",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "45aa5bb944b41d5f9293a8e1d0256a1d743511b253cd07b63cba94663e5a7b37"
+}

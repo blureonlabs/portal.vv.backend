@@ -1,0 +1,79 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT d.id, d.profile_id, p.full_name, p.email,\n                      d.nationality, d.salary_type as \"salary_type: SalaryType\",\n                      d.is_active, d.self_entry_enabled, d.created_at\n               FROM drivers d\n               JOIN profiles p ON p.id = d.profile_id\n               ORDER BY p.full_name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "profile_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "full_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "email",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "nationality",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "salary_type: SalaryType",
+        "type_info": {
+          "Custom": {
+            "name": "salary_type",
+            "kind": {
+              "Enum": [
+                "commission",
+                "target_high",
+                "target_low"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "is_active",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "self_entry_enabled",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c05dcd4edcaa6623ed7bd600628433bcfffd98bc81adcf2c46cc9c2e51f83b9d"
+}

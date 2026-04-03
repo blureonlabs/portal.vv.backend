@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE invites SET status = $1, updated_at = NOW() WHERE id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "invite_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "accepted",
+                "revoked",
+                "expired"
+              ]
+            }
+          }
+        },
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c166c9a381b408ef4dcc6d7b08bd0a2bfefa3d6db3a57cfe185af88609c664a9"
+}

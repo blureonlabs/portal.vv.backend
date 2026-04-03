@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE vehicle_assignments SET unassigned_at = NOW() WHERE vehicle_id = $1 AND unassigned_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "97ffa1c08c6ad2c20cb3690dbc659259e6a9ff8f615c45090afda0ec25ec9fb3"
+}

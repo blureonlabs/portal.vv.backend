@@ -1,0 +1,95 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH ins AS (\n                INSERT INTO invoices\n                    (driver_id, invoice_no, period_start, period_end, line_items_json, total_aed, pdf_url, generated_by)\n                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n                RETURNING *\n            )\n            SELECT\n                ins.id, ins.driver_id,\n                pd.full_name AS driver_name,\n                ins.invoice_no,\n                ins.period_start, ins.period_end,\n                ins.line_items_json,\n                ins.total_aed,\n                ins.pdf_url,\n                ins.generated_by,\n                pg.full_name AS generated_by_name,\n                ins.created_at\n            FROM ins\n            JOIN drivers d ON d.id = ins.driver_id\n            JOIN profiles pd ON pd.id = d.profile_id\n            JOIN profiles pg ON pg.id = ins.generated_by\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "driver_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "driver_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "invoice_no",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "period_start",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 5,
+        "name": "period_end",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 6,
+        "name": "line_items_json",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 7,
+        "name": "total_aed",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 8,
+        "name": "pdf_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "generated_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 10,
+        "name": "generated_by_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Date",
+        "Date",
+        "Jsonb",
+        "Numeric",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b9890752196970703f8d7bbcb117f6c1dea37f9d9ce5d83eeaa463ab34d9db22"
+}

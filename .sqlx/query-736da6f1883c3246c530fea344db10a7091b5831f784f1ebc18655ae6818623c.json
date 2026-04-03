@@ -1,0 +1,129 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH ins AS (\n                INSERT INTO leave_requests (driver_id, type, from_date, to_date, reason)\n                VALUES ($1, $2, $3, $4, $5)\n                RETURNING *\n            )\n            SELECT\n                ins.id, ins.driver_id,\n                p.full_name AS driver_name,\n                ins.type AS \"type: LeaveType\",\n                ins.from_date, ins.to_date, ins.reason,\n                ins.status AS \"status: LeaveStatus\",\n                ins.actioned_by,\n                pa.full_name AS actioned_by_name,\n                ins.rejection_reason,\n                ins.created_at, ins.updated_at\n            FROM ins\n            JOIN drivers d ON d.id = ins.driver_id\n            JOIN profiles p ON p.id = d.profile_id\n            LEFT JOIN profiles pa ON pa.id = ins.actioned_by\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "driver_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "driver_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "type: LeaveType",
+        "type_info": {
+          "Custom": {
+            "name": "leave_type",
+            "kind": {
+              "Enum": [
+                "leave",
+                "permission"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "from_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 5,
+        "name": "to_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 6,
+        "name": "reason",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "status: LeaveStatus",
+        "type_info": {
+          "Custom": {
+            "name": "leave_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "approved",
+                "rejected"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "actioned_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 9,
+        "name": "actioned_by_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "rejection_reason",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 12,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "leave_type",
+            "kind": {
+              "Enum": [
+                "leave",
+                "permission"
+              ]
+            }
+          }
+        },
+        "Date",
+        "Date",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "736da6f1883c3246c530fea344db10a7091b5831f784f1ebc18655ae6818623c"
+}

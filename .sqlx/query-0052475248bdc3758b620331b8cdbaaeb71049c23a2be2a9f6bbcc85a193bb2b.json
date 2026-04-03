@@ -1,0 +1,118 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO vehicles (plate_number, make, model, year, color, registration_date, registration_expiry, insurance_expiry)\n               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n               RETURNING id, plate_number, make, model, year, color,\n                         registration_date, registration_expiry, insurance_expiry,\n                         status as \"status: VehicleStatus\", is_active, created_at,\n                         NULL::uuid as assigned_driver_id, NULL::text as assigned_driver_name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "plate_number",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "make",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "model",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "year",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "color",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "registration_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 7,
+        "name": "registration_expiry",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 8,
+        "name": "insurance_expiry",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 9,
+        "name": "status: VehicleStatus",
+        "type_info": {
+          "Custom": {
+            "name": "vehicle_status",
+            "kind": {
+              "Enum": [
+                "available",
+                "assigned",
+                "inactive"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "is_active",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 12,
+        "name": "assigned_driver_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 13,
+        "name": "assigned_driver_name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int4",
+        "Text",
+        "Date",
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "0052475248bdc3758b620331b8cdbaaeb71049c23a2be2a9f6bbcc85a193bb2b"
+}

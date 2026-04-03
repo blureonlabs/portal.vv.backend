@@ -1,0 +1,142 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH upd AS (\n                UPDATE advances\n                SET status = 'paid',\n                    payment_date = $3,\n                    method = $4,\n                    salary_period = $5,\n                    actioned_by = $2,\n                    updated_at = NOW()\n                WHERE id = $1 AND status = 'approved'\n                RETURNING *\n            )\n            SELECT\n                upd.id, upd.driver_id,\n                p.full_name AS driver_name,\n                upd.amount_aed,\n                upd.reason,\n                upd.status AS \"status: AdvanceStatus\",\n                upd.rejection_reason,\n                upd.payment_date,\n                upd.method AS \"method: PaymentMethod\",\n                upd.carry_forward_aed,\n                upd.salary_period,\n                upd.actioned_by,\n                pa.full_name AS actioned_by_name,\n                upd.created_at,\n                upd.updated_at\n            FROM upd\n            JOIN drivers d ON d.id = upd.driver_id\n            JOIN profiles p ON p.id = d.profile_id\n            LEFT JOIN profiles pa ON pa.id = upd.actioned_by\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "driver_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "driver_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "amount_aed",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 4,
+        "name": "reason",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "status: AdvanceStatus",
+        "type_info": {
+          "Custom": {
+            "name": "advance_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "approved",
+                "rejected",
+                "paid"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "rejection_reason",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "payment_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 8,
+        "name": "method: PaymentMethod",
+        "type_info": {
+          "Custom": {
+            "name": "payment_method",
+            "kind": {
+              "Enum": [
+                "cash",
+                "bank_transfer"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "carry_forward_aed",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 10,
+        "name": "salary_period",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 11,
+        "name": "actioned_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 12,
+        "name": "actioned_by_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 14,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Date",
+        {
+          "Custom": {
+            "name": "payment_method",
+            "kind": {
+              "Enum": [
+                "cash",
+                "bank_transfer"
+              ]
+            }
+          }
+        },
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "5c540b70562c94e4e7a4b9eaf6c18ec492aa523c34292cc1b9854982434265b7"
+}

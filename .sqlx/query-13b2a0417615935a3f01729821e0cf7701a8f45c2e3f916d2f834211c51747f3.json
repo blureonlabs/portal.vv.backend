@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE trips SET is_deleted = true WHERE id = $1 AND is_deleted = false",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "13b2a0417615935a3f01729821e0cf7701a8f45c2e3f916d2f834211c51747f3"
+}
