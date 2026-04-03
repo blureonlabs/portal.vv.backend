@@ -269,8 +269,8 @@ impl ReportService {
 
         let pool = &self.pool;
 
-        // Fire all 10 queries concurrently
-        let (mtd, counts, ins_rows, top_rows, bottom_rows, day_rows, exp_mtd, threshold_row, shortfall_rows, svc_overdue_rows) = tokio::try_join!(
+        // Batch 1: 5 concurrent queries (stay within pool limits)
+        let (mtd, counts, ins_rows, top_rows, exp_mtd) = tokio::try_join!(
             sqlx::query_as::<_, MtdRow>(
                 "SELECT SUM(cash_aed + card_aed + other_aed) AS revenue, COUNT(*) AS trips, \
                         SUM(cash_aed) AS cash_total, SUM(card_aed) AS card_total, SUM(other_aed) AS other_total \
@@ -300,6 +300,13 @@ impl ReportService {
                  GROUP BY t.driver_id, p.full_name ORDER BY revenue_aed DESC LIMIT 5"
             ).bind(month_start).bind(today).fetch_all(pool),
 
+            sqlx::query_as::<_, ExpMtdRow>(
+                "SELECT SUM(amount_aed) AS total FROM expenses WHERE date BETWEEN $1 AND $2"
+            ).bind(month_start).bind(today).fetch_one(pool),
+        )?;
+
+        // Batch 2: 5 more concurrent queries
+        let (bottom_rows, day_rows, threshold_row, shortfall_rows, svc_overdue_rows) = tokio::try_join!(
             sqlx::query_as::<_, TopRow>(
                 "SELECT t.driver_id, p.full_name AS driver_name, COUNT(*) AS trips_count, \
                         SUM(t.cash_aed + t.card_aed + t.other_aed) AS revenue_aed \
@@ -313,10 +320,6 @@ impl ReportService {
                  FROM trips WHERE trip_date BETWEEN $1 AND $2 AND is_deleted = false \
                  GROUP BY trip_date ORDER BY trip_date"
             ).bind(thirty_days_ago).bind(today).fetch_all(pool),
-
-            sqlx::query_as::<_, ExpMtdRow>(
-                "SELECT SUM(amount_aed) AS total FROM expenses WHERE date BETWEEN $1 AND $2"
-            ).bind(month_start).bind(today).fetch_one(pool),
 
             sqlx::query_as::<_, ThresholdRow>(
                 "SELECT value FROM settings WHERE key = 'cash_shortfall_threshold_aed' LIMIT 1"
