@@ -158,6 +158,25 @@ impl AuthService {
         Ok(())
     }
 
+    pub async fn reset_user_password(
+        &self,
+        target_user_id: Uuid,
+        new_password: &str,
+    ) -> Result<(), AppError> {
+        let profile = self.repo
+            .find_profile_by_id(target_user_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("User not found".into()))?;
+
+        self.supabase.update_user_password(target_user_id, new_password).await?;
+
+        self.notification
+            .send_password_changed_email(&profile.email, &profile.full_name, new_password)
+            .await?;
+
+        Ok(())
+    }
+
     pub async fn forgot_password(&self, email: &str) -> Result<(), AppError> {
         let profile = self.repo.find_profile_by_email(email).await?;
         if profile.is_none() {

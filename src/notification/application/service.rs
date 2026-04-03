@@ -186,6 +186,31 @@ impl NotificationService {
         self.resend.send(to, &subject, &html).await
     }
 
+    pub async fn send_password_changed_email(
+        &self,
+        to: &str,
+        name: &str,
+        new_password: &str,
+    ) -> Result<(), AppError> {
+        let subject = "Your FMS password has been reset";
+        let html = format!(
+            r#"<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+  <div style="background:#161f3f;padding:24px 32px;border-radius:8px 8px 0 0">
+    <h1 style="color:#fff;margin:0;font-size:20px">Voiture Voyages Fleet Management</h1>
+  </div>
+  <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+    <p style="margin:0 0 16px">Hello <strong>{name}</strong>,</p>
+    <p style="margin:0 0 16px">An administrator has reset your password. Your new temporary password is:</p>
+    <p style="margin:0 0 24px;font-size:20px;font-weight:700;letter-spacing:2px;color:#161f3f">{new_password}</p>
+    <p style="margin:0 0 16px">Please log in and change your password immediately for security.</p>
+    <p style="margin:24px 0 0;color:#6b7280;font-size:13px">If you did not expect this change, contact your administrator immediately.</p>
+  </div>
+  <p style="color:#9ca3af;font-size:11px;text-align:center;margin:16px 0">© Voiture Voyages — Fleet Management System</p>
+</div>"#
+        );
+        self.resend.send(to, subject, &html).await
+    }
+
     fn capitalise(s: &str) -> String {
         let mut c = s.chars();
         match c.next() {

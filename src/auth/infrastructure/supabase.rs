@@ -26,7 +26,6 @@ struct SupabaseUser {
     id: Uuid,
 }
 
-#[allow(dead_code)]
 #[derive(Serialize)]
 struct UpdateUserPayload<'a> {
     password: &'a str,
@@ -126,6 +125,23 @@ impl SupabaseAdminClient {
         if !res.status().is_success() {
             let body = res.text().await.unwrap_or_default();
             return Err(AppError::Internal(format!("Supabase enable_user failed: {}", body)));
+        }
+        Ok(())
+    }
+
+    pub async fn update_user_password(&self, user_id: Uuid, new_password: &str) -> Result<(), AppError> {
+        let res = self.http
+            .put(format!("{}/admin/users/{}", self.base_url, user_id))
+            .header("apikey", &self.service_role_key)
+            .header("Authorization", format!("Bearer {}", self.service_role_key))
+            .json(&UpdateUserPayload { password: new_password })
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        if !res.status().is_success() {
+            let body = res.text().await.unwrap_or_default();
+            return Err(AppError::Internal(format!("Supabase update_user_password failed: {}", body)));
         }
         Ok(())
     }

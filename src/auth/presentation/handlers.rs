@@ -11,7 +11,7 @@ use crate::auth::application::service::AuthService;
 use crate::auth::domain::repository::AuthRepository;
 use crate::auth::presentation::dto::{
     AcceptInviteRequest, ForgotPasswordRequest, InviteResponse, InviteUserRequest, MeResponse,
-    UpdateAvatarRequest, UserResponse,
+    ResetPasswordRequest, UpdateAvatarRequest, UserResponse,
 };
 use crate::common::{
     error::AppError,
@@ -213,4 +213,41 @@ pub async fn update_avatar(
 ) -> Result<HttpResponse, AppError> {
     svc.repo.update_avatar(user.id, &body.avatar_url).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(serde_json::json!({ "avatar_url": body.avatar_url }))))
+}
+
+pub async fn reset_user_password(
+    user: CurrentUser,
+    svc: web::Data<Arc<AuthService>>,
+    path: web::Path<Uuid>,
+    body: web::Json<ResetPasswordRequest>,
+) -> Result<HttpResponse, AppError> {
+    let target_id = path.into_inner();
+
+    // Fetch the target user's profile to check their role
+    let target_profile = svc.repo
+        .find_profile_by_id(target_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("User not found".into()))?;
+
+    match user.role {
+        Role::SuperAdmin => {
+            // Can reset any user
+        }
+        Role::Hr => {
+            // Can only reset drivers and owners
+            if target_profile.role != Role::Driver && target_profile.role != Role::Owner {
+                return Err(AppError::Forbidden("HR can only reset passwords for drivers and owners".into()));
+            }
+        }
+        _ => {
+            return Err(AppError::Forbidden("Insufficient permissions".into()));
+        }
+    }
+
+    if body.password.len() < 8 {
+        return Err(AppError::BadRequest("Password must be at least 8 characters".into()));
+    }
+
+    svc.reset_user_password(target_id, &body.password).await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(())))
 }

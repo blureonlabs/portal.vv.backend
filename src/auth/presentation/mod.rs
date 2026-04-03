@@ -18,5 +18,6 @@ pub fn routes(cfg: &mut web::ServiceConfig) {
             .route("/invites", web::get().to(handlers::list_invites))
             .route("/invites/{id}/revoke", web::put().to(handlers::revoke_invite))
             .route("/invites/{id}/resend", web::post().to(handlers::resend_invite))
+            .route("/{id}/password", web::put().to(handlers::reset_user_password))
     );
 }
