@@ -29,6 +29,22 @@ impl NotificationService {
         self.resend.send(to_email, subject, &html).await
     }
 
+    pub async fn send_broadcast_email(
+        &self,
+        to_email: &str,
+        subject: &str,
+        html_body: &str,
+    ) -> Result<(), AppError> {
+        let html = format!(
+            r#"<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+{html_body}
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
+<p style="color:#6b7280;font-size:12px">Sent via Voiture Voyages Fleet Management</p>
+</div>"#
+        );
+        self.resend.send(to_email, subject, &html).await
+    }
+
     pub async fn send_password_reset_email(
         &self,
         to_email: &str,

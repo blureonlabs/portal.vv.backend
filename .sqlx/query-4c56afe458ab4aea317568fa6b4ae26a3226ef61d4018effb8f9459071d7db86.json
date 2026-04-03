@@ -1,0 +1,139 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH ins AS (\n                INSERT INTO broadcasts (subject, body, channel, target, target_driver_ids, sent_by)\n                VALUES ($1, $2, $3, $4, $5, $6)\n                RETURNING *\n            )\n            SELECT ins.id, ins.subject, ins.body,\n                   ins.channel AS \"channel: BroadcastChannel\",\n                   ins.target AS \"target: BroadcastTarget\",\n                   ins.target_driver_ids,\n                   ins.sent_by,\n                   p.full_name AS sent_by_name,\n                   ins.recipient_count,\n                   ins.status AS \"status: BroadcastStatus\",\n                   ins.created_at\n            FROM ins\n            JOIN profiles p ON p.id = ins.sent_by",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "subject",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "body",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "channel: BroadcastChannel",
+        "type_info": {
+          "Custom": {
+            "name": "broadcast_channel",
+            "kind": {
+              "Enum": [
+                "email",
+                "whatsapp"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "target: BroadcastTarget",
+        "type_info": {
+          "Custom": {
+            "name": "broadcast_target",
+            "kind": {
+              "Enum": [
+                "all_drivers",
+                "selected_drivers"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "target_driver_ids",
+        "type_info": "UuidArray"
+      },
+      {
+        "ordinal": 6,
+        "name": "sent_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "sent_by_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "recipient_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "status: BroadcastStatus",
+        "type_info": {
+          "Custom": {
+            "name": "broadcast_status",
+            "kind": {
+              "Enum": [
+                "draft",
+                "sending",
+                "sent",
+                "failed"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        {
+          "Custom": {
+            "name": "broadcast_channel",
+            "kind": {
+              "Enum": [
+                "email",
+                "whatsapp"
+              ]
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "broadcast_target",
+            "kind": {
+              "Enum": [
+                "all_drivers",
+                "selected_drivers"
+              ]
+            }
+          }
+        },
+        "UuidArray",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "4c56afe458ab4aea317568fa6b4ae26a3226ef61d4018effb8f9459071d7db86"
+}

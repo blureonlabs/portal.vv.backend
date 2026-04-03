@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE broadcasts SET status = $2, recipient_count = $3 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "broadcast_status",
+            "kind": {
+              "Enum": [
+                "draft",
+                "sending",
+                "sent",
+                "failed"
+              ]
+            }
+          }
+        },
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "17fc0efe9922ddb07dbc7965ff6d5bc0792d613a18592b5adc6707c57aafbbf3"
+}

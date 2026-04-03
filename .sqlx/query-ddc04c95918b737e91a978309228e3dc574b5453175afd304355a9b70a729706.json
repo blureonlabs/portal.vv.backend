@@ -1,0 +1,112 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT b.id, b.subject, b.body,\n                      b.channel AS \"channel: BroadcastChannel\",\n                      b.target AS \"target: BroadcastTarget\",\n                      b.target_driver_ids,\n                      b.sent_by,\n                      p.full_name AS sent_by_name,\n                      b.recipient_count,\n                      b.status AS \"status: BroadcastStatus\",\n                      b.created_at\n               FROM broadcasts b\n               JOIN profiles p ON p.id = b.sent_by\n               ORDER BY b.created_at DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "subject",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "body",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "channel: BroadcastChannel",
+        "type_info": {
+          "Custom": {
+            "name": "broadcast_channel",
+            "kind": {
+              "Enum": [
+                "email",
+                "whatsapp"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "target: BroadcastTarget",
+        "type_info": {
+          "Custom": {
+            "name": "broadcast_target",
+            "kind": {
+              "Enum": [
+                "all_drivers",
+                "selected_drivers"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "target_driver_ids",
+        "type_info": "UuidArray"
+      },
+      {
+        "ordinal": 6,
+        "name": "sent_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "sent_by_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "recipient_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "status: BroadcastStatus",
+        "type_info": {
+          "Custom": {
+            "name": "broadcast_status",
+            "kind": {
+              "Enum": [
+                "draft",
+                "sending",
+                "sent",
+                "failed"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "ddc04c95918b737e91a978309228e3dc574b5453175afd304355a9b70a729706"
+}

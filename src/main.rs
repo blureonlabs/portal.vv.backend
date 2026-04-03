@@ -27,6 +27,7 @@ mod audit;
 mod uber;
 mod owner;
 mod portal;
+mod comms;
 
 use config::AppConfig;
 use database::infrastructure::PgDatabase;
@@ -138,7 +139,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
 
     // ── Build shared services ─────────────────────────────────────────────────
     let resend = Arc::new(ResendClient::new(&config));
-    let notification_svc = Arc::new(NotificationService::new(resend));
+    let notification_svc = Arc::new(NotificationService::new(Arc::clone(&resend)));
     let audit_svc = Arc::new(AuditService::new(db.pg_pool().clone()));
 
     let auth_repo: Arc<dyn AuthRepository> = Arc::new(PgAuthRepository::new(db.pg_pool().clone()));
@@ -205,6 +206,12 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
         Arc::new(PgOwnerRepository::new(db.pg_pool().clone()));
     let owner_svc = Arc::new(OwnerService::new(Arc::clone(&owner_repo)));
 
+    let comms_repo = comms::infrastructure::PgCommsRepository::new(db.pg_pool().clone());
+    let comms_svc = Arc::new(comms::application::service::CommsService::new(
+        comms_repo,
+        Arc::clone(&notification_svc),
+    ));
+
     // ── Clone for move into closure ───────────────────────────────────────────
     let config_data = web::Data::new((*config).clone());
     let db_data = web::Data::new(db);
@@ -223,6 +230,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let salary_svc_data = web::Data::new(Arc::clone(&salary_svc));
     let owner_svc_data = web::Data::new(Arc::clone(&owner_svc));
     let supabase_data = web::Data::new(Arc::clone(&supabase));
+    let comms_svc_data = web::Data::new(Arc::clone(&comms_svc));
 
     let server = HttpServer::new(move || {
         let cors = actix_cors::Cors::default()
@@ -251,6 +259,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
             .app_data(salary_svc_data.clone())
             .app_data(owner_svc_data.clone())
             .app_data(supabase_data.clone())
+            .app_data(comms_svc_data.clone())
             .route("/", web::get().to(|| async { HttpResponse::Ok().body("FMS OK") }))
             .route("/health", web::get().to(health_check))
             .service(
@@ -271,6 +280,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
                     .configure(uber::routes)
                     .configure(owner::routes)
                     .configure(portal::routes)
+                    .configure(comms::routes)
             )
     })
     .bind(&addr)?;
