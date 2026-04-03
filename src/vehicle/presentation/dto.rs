@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::common::deserialize::empty_string_as_none_date;
+use crate::common::deserialize::{empty_string_as_none_date, empty_string_as_none_uuid};
 use crate::vehicle::domain::entity::{Vehicle, VehicleAssignment, VehicleServiceRecord, VehicleStatus};
 
 // ── Requests ──────────────────────────────────────────────────────────────────
@@ -21,6 +21,8 @@ pub struct CreateVehicleRequest {
     pub registration_expiry: Option<NaiveDate>,
     #[serde(default, deserialize_with = "empty_string_as_none_date")]
     pub insurance_expiry: Option<NaiveDate>,
+    #[serde(default, deserialize_with = "empty_string_as_none_uuid")]
+    pub owner_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -36,6 +38,8 @@ pub struct UpdateVehicleRequest {
     pub registration_expiry: Option<NaiveDate>,
     #[serde(default, deserialize_with = "empty_string_as_none_date")]
     pub insurance_expiry: Option<NaiveDate>,
+    #[serde(default, deserialize_with = "empty_string_as_none_uuid")]
+    pub owner_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]

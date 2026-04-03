@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE vehicles SET plate_number=$2, make=$3, model=$4, year=$5, color=$6,\n               registration_date=$7, registration_expiry=$8, insurance_expiry=$9, owner_id=$10, updated_at=NOW()\n               WHERE id=$1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Int4",
+        "Text",
+        "Date",
+        "Date",
+        "Date",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dfbb285cc7c1c0f3ce93eaaeeb84d20753d008bbf32e5a19b368ed840792629a"
+}

@@ -42,11 +42,12 @@ impl VehicleService {
         registration_date: Option<NaiveDate>,
         registration_expiry: Option<NaiveDate>,
         insurance_expiry: Option<NaiveDate>,
+        owner_id: Option<Uuid>,
     ) -> Result<Vehicle, AppError> {
         let vehicle = self.repo.create(
             &plate_number, &make, &model, year,
             color.as_deref(),
-            registration_date, registration_expiry, insurance_expiry,
+            registration_date, registration_expiry, insurance_expiry, owner_id,
         ).await?;
 
         self.audit.log(actor_id, actor_role, "vehicle", Some(vehicle.id), "created",
@@ -69,6 +70,7 @@ impl VehicleService {
         registration_date: Option<NaiveDate>,
         registration_expiry: Option<NaiveDate>,
         insurance_expiry: Option<NaiveDate>,
+        owner_id: Option<Uuid>,
     ) -> Result<Vehicle, AppError> {
         self.repo.find_by_id(id).await?
             .ok_or_else(|| AppError::NotFound("Vehicle not found".into()))?;
@@ -76,7 +78,7 @@ impl VehicleService {
         let vehicle = self.repo.update(
             id, &plate_number, &make, &model, year,
             color.as_deref(),
-            registration_date, registration_expiry, insurance_expiry,
+            registration_date, registration_expiry, insurance_expiry, owner_id,
         ).await?;
 
         self.audit.log(actor_id, actor_role, "vehicle", Some(id), "updated", None).await?;

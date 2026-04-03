@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO vehicles (plate_number, make, model, year, color, registration_date, registration_expiry, insurance_expiry)\n               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n               RETURNING id, plate_number, make, model, year, color,\n                         registration_date, registration_expiry, insurance_expiry,\n                         status as \"status: VehicleStatus\", is_active, created_at,\n                         NULL::uuid as assigned_driver_id, NULL::text as assigned_driver_name",
+  "query": "INSERT INTO vehicles (plate_number, make, model, year, color, registration_date, registration_expiry, insurance_expiry, owner_id)\n               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)\n               RETURNING id, plate_number, make, model, year, color,\n                         registration_date, registration_expiry, insurance_expiry,\n                         status as \"status: VehicleStatus\", is_active, created_at,\n                         NULL::uuid as assigned_driver_id, NULL::text as assigned_driver_name",
   "describe": {
     "columns": [
       {
@@ -94,7 +94,8 @@
         "Text",
         "Date",
         "Date",
-        "Date"
+        "Date",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -114,5 +115,5 @@
       true
     ]
   },
-  "hash": "0052475248bdc3758b620331b8cdbaaeb71049c23a2be2a9f6bbcc85a193bb2b"
+  "hash": "37b1b9802951d42729fd512655a2830d1e18f303da7737c85b7a35ab0153e353"
 }

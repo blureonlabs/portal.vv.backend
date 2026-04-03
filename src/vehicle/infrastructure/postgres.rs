@@ -70,17 +70,18 @@ impl VehicleRepository for PgVehicleRepository {
         registration_date: Option<NaiveDate>,
         registration_expiry: Option<NaiveDate>,
         insurance_expiry: Option<NaiveDate>,
+        owner_id: Option<Uuid>,
     ) -> Result<Vehicle, AppError> {
         let row = sqlx::query_as!(
             Vehicle,
-            r#"INSERT INTO vehicles (plate_number, make, model, year, color, registration_date, registration_expiry, insurance_expiry)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            r#"INSERT INTO vehicles (plate_number, make, model, year, color, registration_date, registration_expiry, insurance_expiry, owner_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                RETURNING id, plate_number, make, model, year, color,
                          registration_date, registration_expiry, insurance_expiry,
                          status as "status: VehicleStatus", is_active, created_at,
                          NULL::uuid as assigned_driver_id, NULL::text as assigned_driver_name"#,
             plate_number, make, model, year, color,
-            registration_date, registration_expiry, insurance_expiry,
+            registration_date, registration_expiry, insurance_expiry, owner_id,
         )
         .fetch_one(&self.pool)
         .await?;
@@ -98,13 +99,14 @@ impl VehicleRepository for PgVehicleRepository {
         registration_date: Option<NaiveDate>,
         registration_expiry: Option<NaiveDate>,
         insurance_expiry: Option<NaiveDate>,
+        owner_id: Option<Uuid>,
     ) -> Result<Vehicle, AppError> {
         sqlx::query!(
             r#"UPDATE vehicles SET plate_number=$2, make=$3, model=$4, year=$5, color=$6,
-               registration_date=$7, registration_expiry=$8, insurance_expiry=$9, updated_at=NOW()
+               registration_date=$7, registration_expiry=$8, insurance_expiry=$9, owner_id=$10, updated_at=NOW()
                WHERE id=$1"#,
             id, plate_number, make, model, year, color,
-            registration_date, registration_expiry, insurance_expiry,
+            registration_date, registration_expiry, insurance_expiry, owner_id,
         )
         .execute(&self.pool)
         .await?;

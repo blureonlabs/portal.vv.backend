@@ -20,6 +20,7 @@ pub trait VehicleRepository: Send + Sync {
         registration_date: Option<NaiveDate>,
         registration_expiry: Option<NaiveDate>,
         insurance_expiry: Option<NaiveDate>,
+        owner_id: Option<Uuid>,
     ) -> Result<Vehicle, AppError>;
     async fn update(
         &self,
@@ -32,6 +33,7 @@ pub trait VehicleRepository: Send + Sync {
         registration_date: Option<NaiveDate>,
         registration_expiry: Option<NaiveDate>,
         insurance_expiry: Option<NaiveDate>,
+        owner_id: Option<Uuid>,
     ) -> Result<Vehicle, AppError>;
     async fn assign(&self, vehicle_id: Uuid, driver_id: Uuid, assigned_by: Uuid) -> Result<(), AppError>;
     async fn unassign(&self, vehicle_id: Uuid) -> Result<(), AppError>;

@@ -40,7 +40,7 @@ pub async fn create_vehicle(
     let v = svc.create(
         user.id, &role,
         b.plate_number, b.make, b.model, b.year, b.color,
-        b.registration_date, b.registration_expiry, b.insurance_expiry,
+        b.registration_date, b.registration_expiry, b.insurance_expiry, b.owner_id,
     ).await?;
     Ok(HttpResponse::Created().json(ApiResponse::ok(VehicleResponse::from(v))))
 }
@@ -57,7 +57,7 @@ pub async fn update_vehicle(
     let v = svc.update(
         user.id, &role, path.into_inner(),
         b.plate_number, b.make, b.model, b.year, b.color,
-        b.registration_date, b.registration_expiry, b.insurance_expiry,
+        b.registration_date, b.registration_expiry, b.insurance_expiry, b.owner_id,
     ).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(VehicleResponse::from(v))))
 }
