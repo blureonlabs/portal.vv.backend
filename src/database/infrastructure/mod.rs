@@ -6,7 +6,10 @@ pub struct PgDatabase {
 
 impl PgDatabase {
     pub async fn connect(database_url: &str) -> anyhow::Result<Self> {
-        let pool = sqlx::PgPool::connect(database_url).await?;
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(3)
+            .connect(database_url)
+            .await?;
         Ok(Self { pool })
     }
 
