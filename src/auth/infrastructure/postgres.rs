@@ -71,6 +71,16 @@ impl AuthRepository for PgAuthRepository {
         Ok(profile)
     }
 
+    async fn create_profile(&self, id: Uuid, full_name: &str, email: &str, role: &Role, phone: Option<&str>) -> Result<(), AppError> {
+        sqlx::query!(
+            "INSERT INTO profiles (id, role, full_name, email, phone) VALUES ($1, $2, $3, $4, $5)",
+            id, role as &Role, full_name, email, phone
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     async fn create_invite(&self, email: &str, role: Role, token_hash: &str, invited_by: Uuid) -> Result<Invite, AppError> {
         let expires_at = Utc::now() + Duration::hours(24);
         let invite = sqlx::query_as!(

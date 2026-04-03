@@ -25,6 +25,7 @@ mod report;
 mod settings;
 mod audit;
 mod uber;
+mod owner;
 mod portal;
 
 use config::AppConfig;
@@ -80,6 +81,10 @@ use settings::{
     application::service::SettingsService,
 };
 use report::application::service::ReportService;
+use owner::{
+    infrastructure::PgOwnerRepository,
+    application::service::OwnerService,
+};
 
 #[derive(Parser)]
 #[command(name = "fms", about = "Fleet Management System — UAE Operations")]
@@ -140,7 +145,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let supabase = Arc::new(SupabaseAdminClient::new(&config));
     let auth_svc = Arc::new(AuthService::new(
         Arc::clone(&auth_repo),
-        supabase,
+        Arc::clone(&supabase),
         Arc::clone(&config),
         Arc::clone(&notification_svc),
         Arc::clone(&audit_svc),
@@ -196,6 +201,10 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
         deduction_port,
     ));
 
+    let owner_repo: Arc<dyn owner::domain::repository::OwnerRepository> =
+        Arc::new(PgOwnerRepository::new(db.pg_pool().clone()));
+    let owner_svc = Arc::new(OwnerService::new(Arc::clone(&owner_repo)));
+
     // ── Clone for move into closure ───────────────────────────────────────────
     let config_data = web::Data::new((*config).clone());
     let db_data = web::Data::new(db);
@@ -212,6 +221,8 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let audit_svc_data = web::Data::new(Arc::clone(&audit_svc));
     let report_svc_data = web::Data::new(Arc::clone(&report_svc));
     let salary_svc_data = web::Data::new(Arc::clone(&salary_svc));
+    let owner_svc_data = web::Data::new(Arc::clone(&owner_svc));
+    let supabase_data = web::Data::new(Arc::clone(&supabase));
 
     let server = HttpServer::new(move || {
         let cors = actix_cors::Cors::default()
@@ -238,6 +249,8 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
             .app_data(audit_svc_data.clone())
             .app_data(report_svc_data.clone())
             .app_data(salary_svc_data.clone())
+            .app_data(owner_svc_data.clone())
+            .app_data(supabase_data.clone())
             .route("/", web::get().to(|| async { HttpResponse::Ok().body("FMS OK") }))
             .route("/health", web::get().to(health_check))
             .service(
@@ -256,6 +269,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
                     .configure(settings::routes)
                     .configure(audit::routes)
                     .configure(uber::routes)
+                    .configure(owner::routes)
                     .configure(portal::routes)
             )
     })

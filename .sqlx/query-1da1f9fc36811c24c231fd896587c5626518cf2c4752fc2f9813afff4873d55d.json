@@ -19,7 +19,8 @@
                 "super_admin",
                 "accountant",
                 "hr",
-                "driver"
+                "driver",
+                "owner"
               ]
             }
           }
@@ -62,7 +63,8 @@
                 "super_admin",
                 "accountant",
                 "hr",
-                "driver"
+                "driver",
+                "owner"
               ]
             }
           }

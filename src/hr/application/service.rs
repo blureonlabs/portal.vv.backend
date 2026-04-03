@@ -51,7 +51,7 @@ impl HrService {
         let target_driver_id = match actor_role {
             Role::Driver => actor_driver_id
                 .ok_or_else(|| AppError::Forbidden("Driver record not found".into()))?,
-            Role::SuperAdmin | Role::Accountant | Role::Hr => driver_id
+            Role::SuperAdmin | Role::Accountant | Role::Hr | Role::Owner => driver_id
                 .ok_or_else(|| AppError::BadRequest("driver_id is required".into()))?,
         };
 

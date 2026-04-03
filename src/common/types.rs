@@ -9,6 +9,7 @@ pub enum Role {
     Accountant,
     Hr,
     Driver,
+    Owner,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]

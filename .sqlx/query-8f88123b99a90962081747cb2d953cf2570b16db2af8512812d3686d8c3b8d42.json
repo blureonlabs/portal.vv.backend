@@ -19,7 +19,8 @@
                 "super_admin",
                 "accountant",
                 "hr",
-                "driver"
+                "driver",
+                "owner"
               ]
             }
           }

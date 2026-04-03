@@ -9,6 +9,7 @@ pub trait AuthRepository: Send + Sync {
     async fn find_profile_by_email(&self, email: &str) -> Result<Option<Profile>, AppError>;
     async fn list_profiles(&self) -> Result<Vec<Profile>, AppError>;
     async fn insert_profile(&self, id: Uuid, role: Role, full_name: &str, email: &str, invited_by: Option<Uuid>) -> Result<Profile, AppError>;
+    async fn create_profile(&self, id: Uuid, full_name: &str, email: &str, role: &Role, phone: Option<&str>) -> Result<(), AppError>;
 
     async fn create_invite(&self, email: &str, role: Role, token_hash: &str, invited_by: Uuid) -> Result<Invite, AppError>;
     async fn find_invite_by_token_hash(&self, token_hash: &str) -> Result<Option<Invite>, AppError>;
