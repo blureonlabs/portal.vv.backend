@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::auth::infrastructure::SupabaseAdminClient;
 use crate::auth::presentation::handlers::require_role;
-use crate::common::{error::AppError, response::ApiResponse, types::{CurrentUser, Role}};
+use crate::common::{error::AppError, response::ApiResponse, types::{CurrentUser, Role}, validation::validate_password};
 use crate::driver::application::service::DriverService;
 use crate::driver::presentation::dto::{
     CreateDriverRequest, CreateDriverWithAccountRequest, DriverEditResponse, DriverResponse,
@@ -119,6 +119,7 @@ pub async fn create_driver_with_account(
 ) -> Result<HttpResponse, AppError> {
     require_role(&user, &[Role::SuperAdmin])?;
     let b = body.into_inner();
+    validate_password(&b.password).map_err(AppError::BadRequest)?;
 
     // 1. Create Supabase auth user
     let user_id = supabase.create_user(&b.email, &b.password).await?;

@@ -298,6 +298,16 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     .bind(&addr)?;
 
     info!("Server bound successfully to {}", addr);
+
+    // Keep-alive: prevent Render free-tier spin-down (ticks every 14 min)
+    tokio::spawn(async {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(840));
+        loop {
+            interval.tick().await;
+            tracing::debug!("keep-alive tick");
+        }
+    });
+
     server.run().await?;
 
     Ok(())

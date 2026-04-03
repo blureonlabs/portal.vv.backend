@@ -2,7 +2,7 @@ use std::sync::Arc;
 use actix_web::{web, HttpResponse};
 
 use crate::auth::infrastructure::SupabaseAdminClient;
-use crate::common::{response::ApiResponse, types::{CurrentUser, Role}};
+use crate::common::{response::ApiResponse, types::{CurrentUser, Role}, validation::validate_password};
 use crate::auth::presentation::handlers::require_role;
 use crate::owner::application::service::OwnerService;
 use super::dto::*;
@@ -47,6 +47,7 @@ pub async fn create_owner_with_account(
 ) -> Result<HttpResponse, crate::common::error::AppError> {
     require_role(&user, &[Role::SuperAdmin])?;
     let b = body.into_inner();
+    validate_password(&b.password).map_err(crate::common::error::AppError::BadRequest)?;
 
     // 1. Create Supabase auth user
     let user_id = supabase.create_user(&b.email, &b.password).await?;

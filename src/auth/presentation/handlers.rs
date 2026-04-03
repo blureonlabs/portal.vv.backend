@@ -17,6 +17,7 @@ use crate::common::{
     error::AppError,
     response::ApiResponse,
     types::{CurrentUser, Role},
+    validation::validate_password,
 };
 
 // ── JWT Claims ────────────────────────────────────────────────────────────────
@@ -194,6 +195,7 @@ pub async fn accept_invite(
     body: web::Json<AcceptInviteRequest>,
 ) -> Result<HttpResponse, AppError> {
     let body = body.into_inner();
+    validate_password(&body.password).map_err(AppError::BadRequest)?;
     svc.accept_invite(body.token, body.full_name, body.password).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(())))
 }
@@ -244,9 +246,7 @@ pub async fn reset_user_password(
         }
     }
 
-    if body.password.len() < 8 {
-        return Err(AppError::BadRequest("Password must be at least 8 characters".into()));
-    }
+    validate_password(&body.password).map_err(AppError::BadRequest)?;
 
     svc.reset_user_password(target_id, &body.password).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(())))

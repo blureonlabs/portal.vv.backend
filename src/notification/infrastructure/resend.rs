@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use reqwest::Client;
 use serde::Serialize;
 
@@ -28,6 +30,22 @@ impl ResendClient {
     }
 
     pub async fn send(&self, to: &str, subject: &str, html: &str) -> Result<(), AppError> {
+        let mut last_err = None;
+        for attempt in 0..3u32 {
+            match self.try_send(to, subject, html).await {
+                Ok(()) => return Ok(()),
+                Err(e) => {
+                    last_err = Some(e);
+                    if attempt < 2 {
+                        tokio::time::sleep(Duration::from_secs(1 << attempt)).await;
+                    }
+                }
+            }
+        }
+        Err(last_err.unwrap())
+    }
+
+    async fn try_send(&self, to: &str, subject: &str, html: &str) -> Result<(), AppError> {
         let res = self.http
             .post("https://api.resend.com/emails")
             .header("Authorization", format!("Bearer {}", self.api_key))
