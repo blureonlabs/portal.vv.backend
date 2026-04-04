@@ -324,7 +324,7 @@ impl ReportService {
             ).fetch_optional(pool),
             sqlx::query_as::<_, SvcOverdueRow>(
                 "SELECT DISTINCT ON (vs.vehicle_id) \
-                        v.id AS vehicle_id, v.plate_number, vs.service_type, vs.next_due \
+                        v.id AS vehicle_id, v.plate_number, vs.type AS service_type, vs.next_due \
                  FROM vehicle_service vs \
                  JOIN vehicles v ON v.id = vs.vehicle_id \
                  WHERE vs.next_due IS NOT NULL AND vs.next_due < $1 \
