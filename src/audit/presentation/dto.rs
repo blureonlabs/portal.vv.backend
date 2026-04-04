@@ -10,14 +10,8 @@ pub struct ListAuditQuery {
     pub entity_type: Option<String>,
     pub actor_id: Option<Uuid>,
     pub action: Option<String>,
-    #[serde(default = "default_limit")]
-    pub limit: i64,
-    #[serde(default)]
-    pub offset: i64,
-}
-
-fn default_limit() -> i64 {
-    50
+    pub page: Option<i64>,
+    pub limit: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]

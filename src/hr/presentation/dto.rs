@@ -12,6 +12,8 @@ pub struct ListLeaveQuery {
     pub status: Option<LeaveStatus>,
     #[serde(rename = "type")]
     pub leave_type: Option<LeaveType>,
+    pub page: Option<i64>,
+    pub limit: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]

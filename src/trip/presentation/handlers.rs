@@ -5,7 +5,7 @@ use chrono::{Datelike, Local, NaiveDate};
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
-use crate::common::{error::AppError, response::ApiResponse, types::{CurrentUser, Role}};
+use crate::common::{error::AppError, response::{ApiResponse, PaginatedResponse}, types::{CurrentUser, Role}};
 use crate::trip::application::service::TripService;
 use crate::trip::domain::entity::CsvPreviewRow;
 use crate::trip::presentation::dto::{
@@ -36,10 +36,20 @@ pub async fn list_trips(
     });
     let to = query.to.unwrap_or(today);
 
+    let limit = query.limit.unwrap_or(20).min(100).max(1);
+    let page = query.page.unwrap_or(1).max(1);
+    let offset = (page - 1) * limit;
+
     let actor_driver_id = resolve_driver_id(&svc, &user).await?;
-    let trips = svc.list(&user.role, actor_driver_id, query.driver_id, from, to).await?;
-    let resp: Vec<TripResponse> = trips.into_iter().map(TripResponse::from).collect();
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(resp)))
+    let all: Vec<TripResponse> = svc
+        .list(&user.role, actor_driver_id, query.driver_id, from, to)
+        .await?
+        .into_iter()
+        .map(TripResponse::from)
+        .collect();
+    let total = all.len() as i64;
+    let page_data = all.into_iter().skip(offset as usize).take(limit as usize).collect::<Vec<_>>();
+    Ok(HttpResponse::Ok().json(PaginatedResponse::ok(page_data, page, limit, total)))
 }
 
 pub async fn create_trip(

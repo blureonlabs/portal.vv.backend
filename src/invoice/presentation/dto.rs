@@ -10,6 +10,8 @@ use crate::invoice::domain::entity::Invoice;
 #[derive(Debug, Deserialize)]
 pub struct ListInvoicesQuery {
     pub driver_id: Option<Uuid>,
+    pub page: Option<i64>,
+    pub limit: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use actix_web::{web, HttpResponse};
 use uuid::Uuid;
 
-use crate::common::{error::AppError, response::ApiResponse, types::CurrentUser};
+use crate::common::{error::AppError, response::{ApiResponse, PaginatedResponse}, types::CurrentUser};
 use crate::advance::application::service::AdvanceService;
 use crate::advance::presentation::dto::{
     AdvanceResponse, ListAdvancesQuery, PayAdvanceBody, RejectAdvanceBody, RequestAdvanceBody,
@@ -52,10 +52,19 @@ pub async fn list_advances(
     query: web::Query<ListAdvancesQuery>,
 ) -> Result<HttpResponse, AppError> {
     use crate::database::domain::DatabasePool;
+    let limit = query.limit.unwrap_or(20).min(100).max(1);
+    let page = query.page.unwrap_or(1).max(1);
+    let offset = (page - 1) * limit;
     let actor_driver_id = resolve_driver_id(db.pg_pool(), user.id).await?;
-    let advances = svc.list(&user.role, actor_driver_id, query.driver_id, query.status.clone()).await?;
-    let resp: Vec<AdvanceResponse> = advances.into_iter().map(AdvanceResponse::from).collect();
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(resp)))
+    let all: Vec<AdvanceResponse> = svc
+        .list(&user.role, actor_driver_id, query.driver_id, query.status.clone())
+        .await?
+        .into_iter()
+        .map(AdvanceResponse::from)
+        .collect();
+    let total = all.len() as i64;
+    let page_data = all.into_iter().skip(offset as usize).take(limit as usize).collect::<Vec<_>>();
+    Ok(HttpResponse::Ok().json(PaginatedResponse::ok(page_data, page, limit, total)))
 }
 
 pub async fn request_advance(

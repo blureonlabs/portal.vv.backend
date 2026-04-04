@@ -44,8 +44,26 @@ impl AuditService {
         action: Option<&str>,
         limit: i64,
         offset: i64,
-    ) -> Result<Vec<AuditEntry>, AppError> {
-        // Build dynamic query — no compile-time macro because conditions are runtime
+    ) -> Result<(Vec<AuditEntry>, i64), AppError> {
+        // COUNT query
+        let mut count_qb = sqlx::QueryBuilder::<sqlx::Postgres>::new(
+            "SELECT COUNT(*) FROM audit_log WHERE 1=1",
+        );
+        if let Some(et) = entity_type {
+            count_qb.push(" AND entity_type = ").push_bind(et);
+        }
+        if let Some(aid) = actor_id {
+            count_qb.push(" AND actor_id = ").push_bind(aid);
+        }
+        if let Some(act) = action {
+            count_qb.push(" AND action = ").push_bind(act);
+        }
+        let total: i64 = count_qb
+            .build_query_scalar()
+            .fetch_one(&self.pool)
+            .await?;
+
+        // Data query
         let mut qb = sqlx::QueryBuilder::<sqlx::Postgres>::new(
             "SELECT id, actor_id, actor_role::text, entity_type, entity_id, action, metadata_json, created_at \
              FROM audit_log WHERE 1=1",
@@ -67,7 +85,7 @@ impl AuditService {
             .fetch_all(&self.pool)
             .await?;
 
-        Ok(rows.into_iter().map(|r| AuditEntry {
+        let entries = rows.into_iter().map(|r| AuditEntry {
             id: r.id,
             actor_id: r.actor_id,
             actor_role: r.actor_role,
@@ -76,7 +94,9 @@ impl AuditService {
             action: r.action,
             metadata_json: r.metadata_json,
             created_at: r.created_at,
-        }).collect())
+        }).collect();
+
+        Ok((entries, total))
     }
 }
 

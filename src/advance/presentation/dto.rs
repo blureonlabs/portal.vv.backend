@@ -12,6 +12,8 @@ use crate::common::deserialize::{empty_string_as_none_date, empty_string_as_none
 pub struct ListAdvancesQuery {
     pub driver_id: Option<Uuid>,
     pub status: Option<AdvanceStatus>,
+    pub page: Option<i64>,
+    pub limit: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]

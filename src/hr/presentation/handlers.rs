@@ -3,7 +3,7 @@ use std::sync::Arc;
 use actix_web::{web, HttpResponse};
 use uuid::Uuid;
 
-use crate::common::{error::AppError, response::ApiResponse, types::CurrentUser};
+use crate::common::{error::AppError, response::{ApiResponse, PaginatedResponse}, types::CurrentUser};
 use crate::hr::application::service::HrService;
 use crate::hr::presentation::dto::{BulkApproveBody, BulkApproveResponse, LeaveResponse, ListLeaveQuery, RejectLeaveBody, SubmitLeaveBody};
 use crate::notification::application::service::NotificationService;
@@ -37,12 +37,19 @@ pub async fn list_leave(
     query: web::Query<ListLeaveQuery>,
 ) -> Result<HttpResponse, AppError> {
     use crate::database::domain::DatabasePool;
+    let limit = query.limit.unwrap_or(20).min(100).max(1);
+    let page = query.page.unwrap_or(1).max(1);
+    let offset = (page - 1) * limit;
     let actor_driver_id = resolve_driver_id(db.pg_pool(), user.id).await?;
-    let requests = svc
+    let all: Vec<LeaveResponse> = svc
         .list(&user.role, actor_driver_id, query.driver_id, query.status.clone(), query.leave_type.clone())
-        .await?;
-    let resp: Vec<LeaveResponse> = requests.into_iter().map(LeaveResponse::from).collect();
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(resp)))
+        .await?
+        .into_iter()
+        .map(LeaveResponse::from)
+        .collect();
+    let total = all.len() as i64;
+    let page_data = all.into_iter().skip(offset as usize).take(limit as usize).collect::<Vec<_>>();
+    Ok(HttpResponse::Ok().json(PaginatedResponse::ok(page_data, page, limit, total)))
 }
 
 pub async fn submit_leave(

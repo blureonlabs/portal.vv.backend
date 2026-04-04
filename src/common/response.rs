@@ -35,3 +35,29 @@ impl ApiResponse<()> {
         Self { data: None, error: Some(msg.into()), meta: None }
     }
 }
+
+// ── Paginated list response ───────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+pub struct PaginatedResponse<T: Serialize> {
+    pub data: Vec<T>,
+    pub error: Option<String>,
+    pub meta: ListPaginationMeta,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ListPaginationMeta {
+    pub page: i64,
+    pub limit: i64,
+    pub total: i64,
+}
+
+impl<T: Serialize> PaginatedResponse<T> {
+    pub fn ok(data: Vec<T>, page: i64, limit: i64, total: i64) -> Self {
+        Self {
+            data,
+            error: None,
+            meta: ListPaginationMeta { page, limit, total },
+        }
+    }
+}
