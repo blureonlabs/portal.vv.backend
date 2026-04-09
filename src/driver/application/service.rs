@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use rust_decimal::Decimal;
 use uuid::Uuid;
 
 use crate::audit::application::service::AuditService;
@@ -31,12 +32,14 @@ impl DriverService {
         profile_id: Uuid,
         nationality: String,
         salary_type: SalaryType,
+        room_rent_aed: Decimal,
+        commission_rate: Option<Decimal>,
     ) -> Result<Driver, AppError> {
         if self.repo.find_by_profile_id(profile_id).await?.is_some() {
             return Err(AppError::Conflict("Driver profile already exists for this user".into()));
         }
 
-        let driver = self.repo.create(profile_id, &nationality, salary_type).await?;
+        let driver = self.repo.create(profile_id, &nationality, salary_type, room_rent_aed, commission_rate).await?;
 
         self.audit.log(actor_id, actor_role, "driver", Some(driver.id), "created",
             Some(serde_json::json!({ "profile_id": profile_id }))).await?;
@@ -51,6 +54,8 @@ impl DriverService {
         id: Uuid,
         nationality: String,
         salary_type: SalaryType,
+        room_rent_aed: Decimal,
+        commission_rate: Option<Decimal>,
     ) -> Result<Driver, AppError> {
         let old = self.repo.find_by_id(id).await?
             .ok_or_else(|| AppError::NotFound("Driver not found".into()))?;
@@ -64,8 +69,16 @@ impl DriverService {
         if old_st != new_st {
             self.repo.log_edit(id, actor_id, "salary_type", Some(&old_st), Some(&new_st)).await?;
         }
+        if old.room_rent_aed != room_rent_aed {
+            self.repo.log_edit(id, actor_id, "room_rent_aed", Some(&old.room_rent_aed.to_string()), Some(&room_rent_aed.to_string())).await?;
+        }
+        let old_cr = old.commission_rate.map(|r| r.to_string());
+        let new_cr = commission_rate.map(|r| r.to_string());
+        if old_cr != new_cr {
+            self.repo.log_edit(id, actor_id, "commission_rate", old_cr.as_deref(), new_cr.as_deref()).await?;
+        }
 
-        let driver = self.repo.update(id, &nationality, salary_type).await?;
+        let driver = self.repo.update(id, &nationality, salary_type, room_rent_aed, commission_rate).await?;
 
         self.audit.log(actor_id, actor_role, "driver", Some(id), "updated", None).await?;
 

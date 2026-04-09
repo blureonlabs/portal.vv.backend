@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT d.id, d.profile_id, p.full_name, p.email,\n                      d.nationality, d.salary_type as \"salary_type: SalaryType\",\n                      d.is_active, d.self_entry_enabled, d.created_at\n               FROM drivers d\n               JOIN profiles p ON p.id = d.profile_id\n               WHERE d.id = $1",
+  "query": "WITH upd AS (\n                UPDATE drivers SET nationality = $2, salary_type = $3, room_rent_aed = $4, commission_rate = $5, updated_at = NOW()\n                WHERE id = $1\n                RETURNING id, profile_id, nationality, salary_type, is_active, self_entry_enabled, room_rent_aed, commission_rate, created_at\n               )\n               SELECT upd.id, upd.profile_id, p.full_name, p.email,\n                      upd.nationality, upd.salary_type as \"salary_type: SalaryType\",\n                      upd.is_active, upd.self_entry_enabled,\n                      upd.room_rent_aed, upd.commission_rate,\n                      upd.created_at\n               FROM upd JOIN profiles p ON p.id = upd.profile_id",
   "describe": {
     "columns": [
       {
@@ -56,13 +56,38 @@
       },
       {
         "ordinal": 8,
+        "name": "room_rent_aed",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 9,
+        "name": "commission_rate",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 10,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Text",
+        {
+          "Custom": {
+            "name": "salary_type",
+            "kind": {
+              "Enum": [
+                "commission",
+                "target_high",
+                "target_low"
+              ]
+            }
+          }
+        },
+        "Numeric",
+        "Numeric"
       ]
     },
     "nullable": [
@@ -74,8 +99,10 @@
       false,
       false,
       false,
+      false,
+      true,
       false
     ]
   },
-  "hash": "ce00845447aafbda75f50037e94d4c78b9c51c04f0b4fc9b7793f0b70f8b57c6"
+  "hash": "2a44eecb991fce9078465ddf7058f51b454a098e8d2de1587b7ada5890e81b8a"
 }

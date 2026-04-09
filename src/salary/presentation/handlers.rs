@@ -9,6 +9,7 @@ use crate::common::{
     response::ApiResponse,
     types::{CurrentUser, Role},
 };
+use crate::driver::application::service::DriverService;
 use crate::salary::application::service::{GenerateRequest, SalaryService};
 use crate::salary::presentation::dto::{GenerateSalaryBody, ListSalaryQuery, SalaryResponse};
 
@@ -27,26 +28,33 @@ fn require_admin(user: &CurrentUser) -> Result<(), AppError> {
 pub async fn generate_salary(
     user: CurrentUser,
     svc: web::Data<Arc<SalaryService>>,
+    driver_svc: web::Data<Arc<DriverService>>,
     body: web::Json<GenerateSalaryBody>,
 ) -> Result<HttpResponse, AppError> {
     require_admin(&user)?;
     let period_month = parse_month(&body.period_month)?;
+
+    // Fetch the driver to get per-driver room_rent and commission_rate defaults.
+    let driver = driver_svc.get(body.driver_id).await?;
+
     let req = GenerateRequest {
-        driver_id:               body.driver_id,
+        driver_id:                body.driver_id,
         period_month,
-        salary_type:             body.salary_type.clone(),
-        total_earnings_aed:      body.total_earnings_aed,
-        total_cash_received_aed: body.total_cash_received_aed,
-        total_cash_submit_aed:   body.total_cash_submit_aed,
-        cash_not_handover_aed:   body.cash_not_handover_aed,
-        car_charging_aed:        body.car_charging_aed,
-        car_charging_used_aed:   body.car_charging_used_aed,
-        salik_used_aed:          body.salik_used_aed,
-        salik_refund_aed:        body.salik_refund_aed,
-        rta_fine_aed:            body.rta_fine_aed,
+        salary_type:              body.salary_type.clone(),
+        total_earnings_aed:       body.total_earnings_aed,
+        total_cash_received_aed:  body.total_cash_received_aed,
+        total_cash_submit_aed:    body.total_cash_submit_aed,
+        cash_not_handover_aed:    body.cash_not_handover_aed,
+        car_charging_aed:         body.car_charging_aed,
+        car_charging_used_aed:    body.car_charging_used_aed,
+        salik_used_aed:           body.salik_used_aed,
+        salik_refund_aed:         body.salik_refund_aed,
+        rta_fine_aed:             body.rta_fine_aed,
         card_service_charges_aed: body.card_service_charges_aed,
-        room_rent_aed:           body.room_rent_aed,
-        generated_by:            user.id,
+        room_rent_aed:            body.room_rent_aed,
+        driver_room_rent_aed:     driver.room_rent_aed,
+        driver_commission_rate:   driver.commission_rate,
+        generated_by:             user.id,
     };
     let salary = svc.generate(&user.role, req).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(SalaryResponse::from(salary))))

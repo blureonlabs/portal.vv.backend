@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use crate::common::types::SalaryType;
@@ -14,6 +15,8 @@ pub struct Driver {
     pub salary_type: SalaryType,
     pub is_active: bool,
     pub self_entry_enabled: bool,
+    pub room_rent_aed: Decimal,
+    pub commission_rate: Option<Decimal>,
     pub created_at: DateTime<Utc>,
 }
 

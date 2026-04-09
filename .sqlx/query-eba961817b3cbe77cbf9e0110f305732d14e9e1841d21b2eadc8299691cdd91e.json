@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT d.id, d.profile_id, p.full_name, p.email,\n                      d.nationality, d.salary_type as \"salary_type: SalaryType\",\n                      d.is_active, d.self_entry_enabled, d.created_at\n               FROM drivers d\n               JOIN profiles p ON p.id = d.profile_id\n               WHERE d.profile_id = $1",
+  "query": "SELECT d.id, d.profile_id, p.full_name, p.email,\n                      d.nationality, d.salary_type as \"salary_type: SalaryType\",\n                      d.is_active, d.self_entry_enabled,\n                      d.room_rent_aed, d.commission_rate,\n                      d.created_at\n               FROM drivers d\n               JOIN profiles p ON p.id = d.profile_id\n               ORDER BY p.full_name",
   "describe": {
     "columns": [
       {
@@ -56,14 +56,22 @@
       },
       {
         "ordinal": 8,
+        "name": "room_rent_aed",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 9,
+        "name": "commission_rate",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 10,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
-      "Left": [
-        "Uuid"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
@@ -74,8 +82,10 @@
       false,
       false,
       false,
+      false,
+      true,
       false
     ]
   },
-  "hash": "2c60af0c6eee7bd41e5b719050bca42c4f03b249041b8f99c77d056a25fc7e9b"
+  "hash": "eba961817b3cbe77cbf9e0110f305732d14e9e1841d21b2eadc8299691cdd91e"
 }

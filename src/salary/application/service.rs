@@ -56,10 +56,19 @@ impl SalaryService {
                 .unwrap_or_else(|| Decimal::from_f64(default).unwrap())
         };
 
-        let commission_rate   = get_setting("commission_rate",          0.75);
-        let target_high_aed   = get_setting("salary_target_high_aed",  0.0);
-        let target_low_aed    = get_setting("salary_target_low_aed",   0.0);
-        let fixed_car_low_aed = get_setting("salary_fixed_car_low_aed", 0.0);
+        let global_commission_rate = get_setting("commission_rate",          0.75);
+        let target_high_aed        = get_setting("salary_target_high_aed",  0.0);
+        let target_low_aed         = get_setting("salary_target_low_aed",   0.0);
+        let fixed_car_low_aed      = get_setting("salary_fixed_car_low_aed", 0.0);
+
+        // Per-driver overrides: driver's commission_rate takes precedence over global setting.
+        let commission_rate = req.driver_commission_rate.unwrap_or(global_commission_rate);
+
+        // Room rent: if request body provides a value > 0, use it as override; otherwise use the driver's stored value.
+        let effective_room_rent = match req.room_rent_aed {
+            Some(v) if v > Decimal::ZERO => v,
+            _ => req.driver_room_rent_aed,
+        };
 
         // 2. Advance deductions
         let advance_deduction_aed = self.deduction_port
@@ -91,7 +100,7 @@ impl SalaryService {
                         - salik_aed
                         - req.rta_fine_aed
                         - req.card_service_charges_aed
-                        - req.room_rent_aed.unwrap_or(Decimal::ZERO);
+                        - effective_room_rent;
                     (commission, Some(commission), None, None, final_sal)
                 }
                 SalaryType::TargetHigh => {
@@ -101,7 +110,7 @@ impl SalaryService {
                         - salik_aed
                         - req.rta_fine_aed
                         - req.card_service_charges_aed
-                        - req.room_rent_aed.unwrap_or(Decimal::ZERO)
+                        - effective_room_rent
                         - req.cash_not_handover_aed;
                     (base, None, Some(target_high_aed), None, final_sal)
                 }
@@ -112,7 +121,7 @@ impl SalaryService {
                         - salik_aed
                         - req.rta_fine_aed
                         - req.card_service_charges_aed
-                        - req.room_rent_aed.unwrap_or(Decimal::ZERO)
+                        - effective_room_rent
                         - req.cash_not_handover_aed;
                     (base, None, Some(target_low_aed), Some(fixed_car_low_aed), final_sal)
                 }
@@ -137,7 +146,7 @@ impl SalaryService {
             salik_aed,
             rta_fine_aed:            req.rta_fine_aed,
             card_service_charges_aed: req.card_service_charges_aed,
-            room_rent_aed:           req.room_rent_aed,
+            room_rent_aed:           if effective_room_rent > Decimal::ZERO { Some(effective_room_rent) } else { None },
             target_amount_aed,
             fixed_car_charging_aed,
             commission_aed,
@@ -177,19 +186,24 @@ impl SalaryService {
 }
 
 pub struct GenerateRequest {
-    pub driver_id:               Uuid,
-    pub period_month:            NaiveDate,
-    pub salary_type:             SalaryType,
-    pub total_earnings_aed:      Decimal,
-    pub total_cash_received_aed: Decimal,
-    pub total_cash_submit_aed:   Option<Decimal>,
-    pub cash_not_handover_aed:   Decimal,
-    pub car_charging_aed:        Decimal,
-    pub car_charging_used_aed:   Option<Decimal>,
-    pub salik_used_aed:          Decimal,
-    pub salik_refund_aed:        Decimal,
-    pub rta_fine_aed:            Decimal,
+    pub driver_id:                Uuid,
+    pub period_month:             NaiveDate,
+    pub salary_type:              SalaryType,
+    pub total_earnings_aed:       Decimal,
+    pub total_cash_received_aed:  Decimal,
+    pub total_cash_submit_aed:    Option<Decimal>,
+    pub cash_not_handover_aed:    Decimal,
+    pub car_charging_aed:         Decimal,
+    pub car_charging_used_aed:    Option<Decimal>,
+    pub salik_used_aed:           Decimal,
+    pub salik_refund_aed:         Decimal,
+    pub rta_fine_aed:             Decimal,
     pub card_service_charges_aed: Decimal,
-    pub room_rent_aed:           Option<Decimal>,
-    pub generated_by:            Uuid,
+    /// Override room rent from the request body. If None or 0, falls back to the driver's stored room_rent_aed.
+    pub room_rent_aed:            Option<Decimal>,
+    /// Driver's per-record room rent (fetched by handler from the driver row).
+    pub driver_room_rent_aed:     Decimal,
+    /// Driver's per-record commission rate (None = use global setting).
+    pub driver_commission_rate:   Option<Decimal>,
+    pub generated_by:             Uuid,
 }
