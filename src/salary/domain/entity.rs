@@ -1,9 +1,19 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::common::types::SalaryType;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[serde(rename_all = "snake_case")]
+#[sqlx(type_name = "salary_status", rename_all = "snake_case")]
+pub enum SalaryStatus {
+    Draft,
+    Approved,
+    Paid,
+}
 
 #[derive(Debug, Clone)]
 pub struct Salary {
@@ -38,6 +48,13 @@ pub struct Salary {
     pub generated_by: Uuid,
     pub generated_by_name: String,
     pub generated_at: DateTime<Utc>,
+    pub status: SalaryStatus,
+    pub approved_by: Option<Uuid>,
+    pub approved_at: Option<DateTime<Utc>>,
+    pub payment_date: Option<NaiveDate>,
+    pub payment_mode: Option<String>,
+    pub payment_reference: Option<String>,
+    pub paid_at: Option<DateTime<Utc>>,
 }
 
 pub struct CreateSalary {

@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -14,6 +14,7 @@ pub struct CreateDriverRequest {
     #[serde(default)]
     pub room_rent_aed: Decimal,
     pub commission_rate: Option<Decimal>,
+    pub joining_date: Option<NaiveDate>,
 }
 
 /// Create driver with a new auth account in one step (super_admin use)
@@ -29,6 +30,7 @@ pub struct CreateDriverWithAccountRequest {
     #[serde(default)]
     pub room_rent_aed: Decimal,
     pub commission_rate: Option<Decimal>,
+    pub joining_date: Option<NaiveDate>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,6 +40,7 @@ pub struct UpdateDriverRequest {
     #[serde(default)]
     pub room_rent_aed: Decimal,
     pub commission_rate: Option<Decimal>,
+    pub joining_date: Option<NaiveDate>,
 }
 
 #[derive(Debug, Serialize)]
@@ -52,6 +55,7 @@ pub struct DriverResponse {
     pub self_entry_enabled: bool,
     pub room_rent_aed: Decimal,
     pub commission_rate: Option<Decimal>,
+    pub joining_date: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -68,6 +72,7 @@ impl From<Driver> for DriverResponse {
             self_entry_enabled: d.self_entry_enabled,
             room_rent_aed: d.room_rent_aed,
             commission_rate: d.commission_rate,
+            joining_date: d.joining_date.map(|d| d.to_string()),
             created_at: d.created_at,
         }
     }

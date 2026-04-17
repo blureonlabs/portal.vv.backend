@@ -183,6 +183,36 @@ impl SalaryService {
 
         Ok(salary)
     }
+
+    pub async fn approve(&self, actor_id: Uuid, actor_role: &Role, id: Uuid) -> Result<Salary, AppError> {
+        let salary = self.repo.approve(id, actor_id).await?;
+        self.audit.log(actor_id, actor_role, "salary", Some(id), "salary.approved",
+            Some(serde_json::json!({
+                "salary_id": id,
+                "approved_by": actor_id
+            }))).await?;
+        Ok(salary)
+    }
+
+    pub async fn mark_paid(
+        &self,
+        actor_id: Uuid,
+        actor_role: &Role,
+        id: Uuid,
+        payment_date: NaiveDate,
+        payment_mode: String,
+        payment_reference: Option<String>,
+    ) -> Result<Salary, AppError> {
+        let salary = self.repo.mark_paid(id, payment_date, payment_mode.clone(), payment_reference.clone()).await?;
+        self.audit.log(actor_id, actor_role, "salary", Some(id), "salary.paid",
+            Some(serde_json::json!({
+                "salary_id": id,
+                "payment_date": payment_date,
+                "payment_mode": payment_mode,
+                "payment_reference": payment_reference
+            }))).await?;
+        Ok(salary)
+    }
 }
 
 pub struct GenerateRequest {

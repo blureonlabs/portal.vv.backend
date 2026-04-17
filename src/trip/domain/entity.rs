@@ -21,8 +21,9 @@ pub struct Trip {
     pub entered_by: Uuid,
     pub trip_date: NaiveDate,
     pub cash_aed: Decimal,
+    pub uber_cash_aed: Decimal,
+    pub bolt_cash_aed: Decimal,
     pub card_aed: Decimal,
-    pub other_aed: Decimal,
     pub source: TripSource,
     pub notes: Option<String>,
     pub is_deleted: bool,
@@ -31,8 +32,19 @@ pub struct Trip {
 
 impl Trip {
     pub fn total(&self) -> Decimal {
-        self.cash_aed + self.card_aed + self.other_aed
+        self.cash_aed + self.uber_cash_aed + self.bolt_cash_aed + self.card_aed
     }
+}
+
+/// Aggregated monthly earnings for a driver, computed from trips.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct MonthlyEarnings {
+    pub cash_aed: Decimal,
+    pub uber_cash_aed: Decimal,
+    pub bolt_cash_aed: Decimal,
+    pub card_aed: Decimal,
+    pub total_aed: Decimal,
+    pub trip_count: i64,
 }
 
 /// A CSV row parsed from uploaded content, with validation annotations.
@@ -41,8 +53,9 @@ pub struct CsvPreviewRow {
     pub row_num: usize,
     pub trip_date: String,
     pub cash_aed: Decimal,
+    pub uber_cash_aed: Decimal,
+    pub bolt_cash_aed: Decimal,
     pub card_aed: Decimal,
-    pub other_aed: Decimal,
     pub notes: Option<String>,
     pub error: Option<String>,
     pub cap_warning: Option<String>,
@@ -55,8 +68,9 @@ pub struct CreateTrip {
     pub entered_by: Uuid,
     pub trip_date: NaiveDate,
     pub cash_aed: Decimal,
+    pub uber_cash_aed: Decimal,
+    pub bolt_cash_aed: Decimal,
     pub card_aed: Decimal,
-    pub other_aed: Decimal,
     pub source: TripSource,
     pub notes: Option<String>,
 }

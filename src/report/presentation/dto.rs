@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::report::domain::entity::{
-    AdvanceReportRow, CashFlowRow, CashShortfallAlert, DashboardKpis, DriverFinancialRow,
-    DriverSummaryRow, FinanceReport, LeaveReportRow, SalaryReportRow, ServiceOverdueAlert,
-    TripDetailRow, VehicleReportRow,
+    AdvanceReportRow, CashFlowRow, CashShortfallAlert, DashboardKpis, DocumentExpiryAlert,
+    DriverFinancialRow, DriverSummaryRow, FinanceReport, LeaveReportRow, SalaryReportRow,
+    ServiceOverdueAlert, TripDetailRow, VehicleReportRow,
 };
 
 #[derive(Debug, Deserialize)]
@@ -229,6 +229,35 @@ impl From<ServiceOverdueAlert> for ServiceOverdueAlertResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct DocumentExpiryAlertResponse {
+    pub document_id: Uuid,
+    pub entity_type: String,
+    pub entity_id: Uuid,
+    pub entity_name: String,
+    pub doc_type: String,
+    pub file_name: String,
+    pub expiry_date: NaiveDate,
+    pub days_until_expiry: i64,
+    pub is_expired: bool,
+}
+
+impl From<DocumentExpiryAlert> for DocumentExpiryAlertResponse {
+    fn from(a: DocumentExpiryAlert) -> Self {
+        Self {
+            document_id: a.document_id,
+            entity_type: a.entity_type,
+            entity_id: a.entity_id,
+            entity_name: a.entity_name,
+            doc_type: a.doc_type,
+            file_name: a.file_name,
+            expiry_date: a.expiry_date,
+            days_until_expiry: a.days_until_expiry,
+            is_expired: a.is_expired,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub struct DashboardKpisResponse {
     pub revenue_mtd: Decimal,
     pub revenue_cash_mtd: Decimal,
@@ -247,6 +276,7 @@ pub struct DashboardKpisResponse {
     pub revenue_trend: Vec<DayRevenueResponse>,
     pub cash_shortfall_drivers: Vec<CashShortfallAlertResponse>,
     pub service_overdue_vehicles: Vec<ServiceOverdueAlertResponse>,
+    pub document_expiry_alerts: Vec<DocumentExpiryAlertResponse>,
 }
 
 impl From<DashboardKpis> for DashboardKpisResponse {
@@ -289,6 +319,7 @@ impl From<DashboardKpis> for DashboardKpisResponse {
             }).collect(),
             cash_shortfall_drivers: d.cash_shortfall_drivers.into_iter().map(Into::into).collect(),
             service_overdue_vehicles: d.service_overdue_vehicles.into_iter().map(Into::into).collect(),
+            document_expiry_alerts: d.document_expiry_alerts.into_iter().map(Into::into).collect(),
         }
     }
 }

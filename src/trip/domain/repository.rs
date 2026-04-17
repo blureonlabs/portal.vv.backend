@@ -4,7 +4,7 @@ use rust_decimal::Decimal;
 use uuid::Uuid;
 
 use crate::common::error::AppError;
-use super::entity::{CreateTrip, Trip};
+use super::entity::{CreateTrip, MonthlyEarnings, Trip};
 
 #[async_trait]
 pub trait TripRepository: Send + Sync {
@@ -20,10 +20,15 @@ pub trait TripRepository: Send + Sync {
 
     async fn create(&self, payload: CreateTrip) -> Result<Trip, AppError>;
 
+    async fn update(&self, id: Uuid, payload: CreateTrip) -> Result<Trip, AppError>;
+
     async fn soft_delete(&self, id: Uuid) -> Result<(), AppError>;
 
-    /// Sum of cash+card+other for a driver on a specific date (non-deleted rows).
+    /// Sum of cash+uber_cash+bolt_cash+card for a driver on a specific date (non-deleted rows).
     async fn daily_total(&self, driver_id: Uuid, date: NaiveDate) -> Result<Decimal, AppError>;
+
+    /// Same as daily_total but excludes a specific trip id (used when re-checking cap on edit).
+    async fn daily_total_excluding(&self, driver_id: Uuid, date: NaiveDate, exclude_id: Uuid) -> Result<Decimal, AppError>;
 
     /// Bulk insert — used for CSV import.
     async fn bulk_insert(&self, rows: Vec<CreateTrip>) -> Result<Vec<Trip>, AppError>;
@@ -39,4 +44,8 @@ pub trait TripRepository: Send + Sync {
 
     /// Find non-deleted trips for a driver on a specific date.
     async fn find_by_driver_and_date(&self, driver_id: Uuid, date: NaiveDate) -> Result<Vec<Trip>, AppError>;
+
+    /// Aggregate monthly earnings (cash, uber_cash, bolt_cash, card, total, count) for a driver.
+    /// `month` is the first day of the target month.
+    async fn monthly_earnings(&self, driver_id: Uuid, month: NaiveDate) -> Result<MonthlyEarnings, AppError>;
 }

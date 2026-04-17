@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                t.id, t.driver_id,\n                p.full_name AS driver_name,\n                t.vehicle_id, t.entered_by,\n                t.trip_date,\n                t.cash_aed, t.card_aed, t.other_aed,\n                t.source AS \"source: TripSource\",\n                t.notes, t.is_deleted, t.created_at\n            FROM trips t\n            JOIN drivers d ON d.id = t.driver_id\n            JOIN profiles p ON p.id = d.profile_id\n            WHERE t.id = $1\n            ",
+  "query": "\n            WITH upd AS (\n                UPDATE trips\n                SET driver_id      = $2,\n                    trip_date      = $3,\n                    cash_aed       = $4,\n                    uber_cash_aed  = $5,\n                    bolt_cash_aed  = $6,\n                    card_aed       = $7,\n                    notes          = $8\n                WHERE id = $1 AND is_deleted = false\n                RETURNING *\n            )\n            SELECT\n                upd.id, upd.driver_id,\n                p.full_name AS driver_name,\n                upd.vehicle_id, upd.entered_by,\n                upd.trip_date,\n                upd.cash_aed, upd.uber_cash_aed, upd.bolt_cash_aed, upd.card_aed,\n                upd.source AS \"source: TripSource\",\n                upd.notes, upd.is_deleted, upd.created_at\n            FROM upd\n            JOIN drivers d ON d.id = upd.driver_id\n            JOIN profiles p ON p.id = d.profile_id\n            ",
   "describe": {
     "columns": [
       {
@@ -40,16 +40,21 @@
       },
       {
         "ordinal": 7,
-        "name": "card_aed",
+        "name": "uber_cash_aed",
         "type_info": "Numeric"
       },
       {
         "ordinal": 8,
-        "name": "other_aed",
+        "name": "bolt_cash_aed",
         "type_info": "Numeric"
       },
       {
         "ordinal": 9,
+        "name": "card_aed",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 10,
         "name": "source: TripSource",
         "type_info": {
           "Custom": {
@@ -65,24 +70,31 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "notes",
         "type_info": "Text"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "is_deleted",
         "type_info": "Bool"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Uuid",
+        "Date",
+        "Numeric",
+        "Numeric",
+        "Numeric",
+        "Numeric",
+        "Text"
       ]
     },
     "nullable": [
@@ -96,10 +108,11 @@
       false,
       false,
       false,
+      false,
       true,
       false,
       false
     ]
   },
-  "hash": "f4721c8f4232ff87272e3dd26c14b7bb1135452985432a90e9314d212270f776"
+  "hash": "b42932515fa2bcbec4c42bfdaa4402c5450ab8696301e02f2337b589e251ee0f"
 }

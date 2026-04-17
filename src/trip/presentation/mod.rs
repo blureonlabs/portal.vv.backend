@@ -11,6 +11,8 @@ pub fn routes(cfg: &mut web::ServiceConfig) {
             .route("/csv/template", web::get().to(handlers::csv_template))
             .route("/csv/preview", web::post().to(handlers::csv_preview))
             .route("/csv/import", web::post().to(handlers::csv_import))
+            .route("/csv/export", web::get().to(handlers::export_csv))
+            .route("/{id}", web::put().to(handlers::update_trip))
             .route("/{id}", web::delete().to(handlers::delete_trip))
     );
 }

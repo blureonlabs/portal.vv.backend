@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT COALESCE(SUM(cash_aed + uber_cash_aed + bolt_cash_aed + card_aed), 0) AS \"total!: Decimal\"\n            FROM trips\n            WHERE driver_id = $1 AND trip_date = $2 AND is_deleted = false AND id != $3\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "total!: Decimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a0fb31dfce29a2caa8b22259b38385d47a34a15a92852809a22384e9f3cd3211"
+}

@@ -11,7 +11,8 @@ use crate::common::{
 };
 use crate::driver::application::service::DriverService;
 use crate::salary::application::service::{GenerateRequest, SalaryService};
-use crate::salary::presentation::dto::{GenerateSalaryBody, ListSalaryQuery, SalaryResponse};
+use crate::salary::presentation::dto::{FetchEarningsQuery, GenerateSalaryBody, ListSalaryQuery, MarkPaidRequest, SalaryResponse};
+use crate::trip::application::service::TripService;
 
 fn parse_month(s: &str) -> Result<NaiveDate, AppError> {
     NaiveDate::parse_from_str(&format!("{}-01", s), "%Y-%m-%d")
@@ -79,5 +80,44 @@ pub async fn get_salary(
 ) -> Result<HttpResponse, AppError> {
     require_admin(&user)?;
     let salary = svc.get(*id).await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(SalaryResponse::from(salary))))
+}
+
+pub async fn fetch_earnings(
+    user: CurrentUser,
+    trip_svc: web::Data<Arc<TripService>>,
+    query: web::Query<FetchEarningsQuery>,
+) -> Result<HttpResponse, AppError> {
+    require_admin(&user)?;
+    let month_date = parse_month(&query.month)?;
+    let earnings = trip_svc.monthly_earnings(query.driver_id, month_date).await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(earnings)))
+}
+
+pub async fn approve_salary(
+    user: CurrentUser,
+    svc: web::Data<Arc<SalaryService>>,
+    id: web::Path<Uuid>,
+) -> Result<HttpResponse, AppError> {
+    require_admin(&user)?;
+    let salary = svc.approve(user.id, &user.role, *id).await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(SalaryResponse::from(salary))))
+}
+
+pub async fn mark_salary_paid(
+    user: CurrentUser,
+    svc: web::Data<Arc<SalaryService>>,
+    id: web::Path<Uuid>,
+    body: web::Json<MarkPaidRequest>,
+) -> Result<HttpResponse, AppError> {
+    require_admin(&user)?;
+    let salary = svc.mark_paid(
+        user.id,
+        &user.role,
+        *id,
+        body.payment_date,
+        body.payment_mode.clone(),
+        body.payment_reference.clone(),
+    ).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(SalaryResponse::from(salary))))
 }

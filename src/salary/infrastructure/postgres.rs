@@ -5,7 +5,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::common::{error::AppError, types::SalaryType};
-use crate::salary::domain::{entity::{CreateSalary, Salary}, repository::SalaryRepository};
+use crate::salary::domain::{entity::{CreateSalary, Salary, SalaryStatus}, repository::SalaryRepository};
 
 pub struct PgSalaryRepository {
     pool: PgPool,
@@ -50,6 +50,13 @@ struct SalaryRow {
     generated_by: Uuid,
     generated_by_name: String,
     generated_at: chrono::DateTime<chrono::Utc>,
+    status: SalaryStatus,
+    approved_by: Option<Uuid>,
+    approved_at: Option<chrono::DateTime<chrono::Utc>>,
+    payment_date: Option<NaiveDate>,
+    payment_mode: Option<String>,
+    payment_reference: Option<String>,
+    paid_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 fn row_to_salary(r: SalaryRow) -> Salary {
@@ -85,6 +92,13 @@ fn row_to_salary(r: SalaryRow) -> Salary {
         generated_by: r.generated_by,
         generated_by_name: r.generated_by_name,
         generated_at: r.generated_at,
+        status: r.status,
+        approved_by: r.approved_by,
+        approved_at: r.approved_at,
+        payment_date: r.payment_date,
+        payment_mode: r.payment_mode,
+        payment_reference: r.payment_reference,
+        paid_at: r.paid_at,
     }
 }
 
@@ -99,7 +113,9 @@ const SELECT_FIELDS: &str = r#"
     s.target_amount_aed, s.fixed_car_charging_aed, s.commission_aed,
     s.base_amount_aed, s.final_salary_aed, s.advance_deduction_aed, s.net_payable_aed,
     s.deductions_json, s.slip_url,
-    s.generated_by, pg.full_name AS generated_by_name, s.generated_at
+    s.generated_by, pg.full_name AS generated_by_name, s.generated_at,
+    s.status, s.approved_by, s.approved_at,
+    s.payment_date, s.payment_mode, s.payment_reference, s.paid_at
 "#;
 
 #[async_trait]
@@ -211,7 +227,9 @@ impl SalaryRepository for PgSalaryRepository {
                 deductions_json, slip_url,
                 generated_by,
                 (SELECT full_name FROM profiles WHERE id = salaries.generated_by) AS generated_by_name,
-                generated_at
+                generated_at,
+                status, approved_by, approved_at,
+                payment_date, payment_mode, payment_reference, paid_at
             "#,
         ))
         .bind(p.driver_id)
@@ -256,5 +274,70 @@ impl SalaryRepository for PgSalaryRepository {
         .await?;
 
         Ok(())
+    }
+
+    async fn approve(&self, id: Uuid, approved_by: Uuid) -> Result<Salary, AppError> {
+        let row = sqlx::query_as::<_, SalaryRow>(
+            "UPDATE salaries SET status = 'approved', approved_by = $2, approved_at = NOW() \
+             WHERE id = $1 \
+             RETURNING id, driver_id, \
+               (SELECT full_name FROM profiles WHERE id = (SELECT profile_id FROM drivers WHERE id = driver_id)) AS driver_name, \
+               period_month, salary_type_snapshot, \
+               total_earnings_aed, total_cash_received_aed, total_cash_submit_aed, \
+               cash_not_handover_aed, cash_diff_aed, \
+               car_charging_aed, car_charging_used_aed, car_charging_diff_aed, \
+               salik_used_aed, salik_refund_aed, salik_aed, \
+               rta_fine_aed, card_service_charges_aed, room_rent_aed, \
+               target_amount_aed, fixed_car_charging_aed, commission_aed, \
+               base_amount_aed, final_salary_aed, advance_deduction_aed, net_payable_aed, \
+               deductions_json, slip_url, generated_by, \
+               (SELECT full_name FROM profiles WHERE id = generated_by) AS generated_by_name, \
+               generated_at, status, approved_by, approved_at, \
+               payment_date, payment_mode, payment_reference, paid_at",
+        )
+        .bind(id)
+        .bind(approved_by)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("Salary {id}")))?;
+
+        Ok(row_to_salary(row))
+    }
+
+    async fn mark_paid(
+        &self,
+        id: Uuid,
+        payment_date: NaiveDate,
+        payment_mode: String,
+        payment_reference: Option<String>,
+    ) -> Result<Salary, AppError> {
+        let row = sqlx::query_as::<_, SalaryRow>(
+            "UPDATE salaries SET status = 'paid', payment_date = $2, payment_mode = $3, \
+               payment_reference = $4, paid_at = NOW() \
+             WHERE id = $1 \
+             RETURNING id, driver_id, \
+               (SELECT full_name FROM profiles WHERE id = (SELECT profile_id FROM drivers WHERE id = driver_id)) AS driver_name, \
+               period_month, salary_type_snapshot, \
+               total_earnings_aed, total_cash_received_aed, total_cash_submit_aed, \
+               cash_not_handover_aed, cash_diff_aed, \
+               car_charging_aed, car_charging_used_aed, car_charging_diff_aed, \
+               salik_used_aed, salik_refund_aed, salik_aed, \
+               rta_fine_aed, card_service_charges_aed, room_rent_aed, \
+               target_amount_aed, fixed_car_charging_aed, commission_aed, \
+               base_amount_aed, final_salary_aed, advance_deduction_aed, net_payable_aed, \
+               deductions_json, slip_url, generated_by, \
+               (SELECT full_name FROM profiles WHERE id = generated_by) AS generated_by_name, \
+               generated_at, status, approved_by, approved_at, \
+               payment_date, payment_mode, payment_reference, paid_at",
+        )
+        .bind(id)
+        .bind(payment_date)
+        .bind(payment_mode)
+        .bind(payment_reference)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("Salary {id}")))?;
+
+        Ok(row_to_salary(row))
     }
 }

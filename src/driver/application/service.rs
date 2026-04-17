@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
@@ -34,12 +35,13 @@ impl DriverService {
         salary_type: SalaryType,
         room_rent_aed: Decimal,
         commission_rate: Option<Decimal>,
+        joining_date: Option<NaiveDate>,
     ) -> Result<Driver, AppError> {
         if self.repo.find_by_profile_id(profile_id).await?.is_some() {
             return Err(AppError::Conflict("Driver profile already exists for this user".into()));
         }
 
-        let driver = self.repo.create(profile_id, &nationality, salary_type, room_rent_aed, commission_rate).await?;
+        let driver = self.repo.create(profile_id, &nationality, salary_type, room_rent_aed, commission_rate, joining_date).await?;
 
         self.audit.log(actor_id, actor_role, "driver", Some(driver.id), "created",
             Some(serde_json::json!({ "profile_id": profile_id }))).await?;
@@ -56,6 +58,7 @@ impl DriverService {
         salary_type: SalaryType,
         room_rent_aed: Decimal,
         commission_rate: Option<Decimal>,
+        joining_date: Option<NaiveDate>,
     ) -> Result<Driver, AppError> {
         let old = self.repo.find_by_id(id).await?
             .ok_or_else(|| AppError::NotFound("Driver not found".into()))?;
@@ -77,8 +80,13 @@ impl DriverService {
         if old_cr != new_cr {
             self.repo.log_edit(id, actor_id, "commission_rate", old_cr.as_deref(), new_cr.as_deref()).await?;
         }
+        let old_jd = old.joining_date.map(|d| d.to_string());
+        let new_jd = joining_date.map(|d| d.to_string());
+        if old_jd != new_jd {
+            self.repo.log_edit(id, actor_id, "joining_date", old_jd.as_deref(), new_jd.as_deref()).await?;
+        }
 
-        let driver = self.repo.update(id, &nationality, salary_type, room_rent_aed, commission_rate).await?;
+        let driver = self.repo.update(id, &nationality, salary_type, room_rent_aed, commission_rate, joining_date).await?;
 
         self.audit.log(actor_id, actor_role, "driver", Some(id), "updated", None).await?;
 

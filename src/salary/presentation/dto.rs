@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::common::types::SalaryType;
-use crate::salary::domain::entity::Salary;
+use crate::salary::domain::entity::{Salary, SalaryStatus};
 
 #[derive(Debug, Deserialize)]
 pub struct GenerateSalaryBody {
@@ -36,6 +36,20 @@ pub struct ListSalaryQuery {
     pub driver_id: Option<Uuid>,
     /// "YYYY-MM"
     pub month: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FetchEarningsQuery {
+    pub driver_id: Uuid,
+    /// "YYYY-MM"
+    pub month: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MarkPaidRequest {
+    pub payment_date: NaiveDate,
+    pub payment_mode: String,
+    pub payment_reference: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -71,6 +85,13 @@ pub struct SalaryResponse {
     pub generated_by: Uuid,
     pub generated_by_name: String,
     pub generated_at: DateTime<Utc>,
+    pub status: SalaryStatus,
+    pub approved_by: Option<Uuid>,
+    pub approved_at: Option<DateTime<Utc>>,
+    pub payment_date: Option<NaiveDate>,
+    pub payment_mode: Option<String>,
+    pub payment_reference: Option<String>,
+    pub paid_at: Option<DateTime<Utc>>,
 }
 
 impl From<Salary> for SalaryResponse {
@@ -107,6 +128,13 @@ impl From<Salary> for SalaryResponse {
             generated_by: s.generated_by,
             generated_by_name: s.generated_by_name,
             generated_at: s.generated_at,
+            status: s.status,
+            approved_by: s.approved_by,
+            approved_at: s.approved_at,
+            payment_date: s.payment_date,
+            payment_mode: s.payment_mode,
+            payment_reference: s.payment_reference,
+            paid_at: s.paid_at,
         }
     }
 }

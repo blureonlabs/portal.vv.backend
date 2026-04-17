@@ -9,7 +9,7 @@ use crate::audit::application::service::AuditService;
 use crate::common::error::AppError;
 use crate::common::types::Role;
 use crate::trip::domain::{
-    entity::{CreateTrip, CsvPreviewRow, Trip, TripSource},
+    entity::{CreateTrip, CsvPreviewRow, MonthlyEarnings, Trip, TripSource},
     repository::TripRepository,
 };
 
@@ -49,8 +49,9 @@ impl TripService {
         vehicle_id: Option<Uuid>,
         trip_date: NaiveDate,
         cash_aed: Decimal,
+        uber_cash_aed: Decimal,
+        bolt_cash_aed: Decimal,
         card_aed: Decimal,
-        other_aed: Decimal,
         notes: Option<String>,
     ) -> Result<(Trip, Option<String>), AppError> {
         // Drivers can only enter their own trips, and only if self_entry_enabled
@@ -73,7 +74,7 @@ impl TripService {
         // Daily cap check
         let cap = self.repo.get_trip_cap().await?;
         let existing = self.repo.daily_total(driver_id, trip_date).await?;
-        let new_total = cash_aed + card_aed + other_aed;
+        let new_total = cash_aed + uber_cash_aed + bolt_cash_aed + card_aed;
 
         if existing + new_total > cap {
             return Err(AppError::BadRequest(format!(
@@ -88,8 +89,9 @@ impl TripService {
                 entered_by: actor_id,
                 trip_date,
                 cash_aed,
+                uber_cash_aed,
+                bolt_cash_aed,
                 card_aed,
-                other_aed,
                 source: TripSource::Manual,
                 notes,
             })
@@ -100,9 +102,9 @@ impl TripService {
 
         // Conflict detection: check if another trip for the same driver+date
         // was entered from a different source. Admin entries take priority.
-        let existing = self.repo.find_by_driver_and_date(driver_id, trip_date).await?;
+        let existing_trips = self.repo.find_by_driver_and_date(driver_id, trip_date).await?;
         let new_source = &trip.source;
-        let conflict_warning = existing.iter()
+        let conflict_warning = existing_trips.iter()
             .filter(|t| t.id != trip.id && &t.source != new_source)
             .map(|t| format!(
                 "A trip from source '{:?}' already exists for driver {} on {}. Admin entry takes priority.",
@@ -111,6 +113,65 @@ impl TripService {
             .next();
 
         Ok((trip, conflict_warning))
+    }
+
+    pub async fn update(
+        &self,
+        actor_id: Uuid,
+        actor_role: &Role,
+        trip_id: Uuid,
+        driver_id: Uuid,
+        vehicle_id: Option<Uuid>,
+        trip_date: NaiveDate,
+        cash_aed: Decimal,
+        uber_cash_aed: Decimal,
+        bolt_cash_aed: Decimal,
+        card_aed: Decimal,
+        notes: Option<String>,
+    ) -> Result<Trip, AppError> {
+        match actor_role {
+            Role::SuperAdmin | Role::Accountant => {}
+            _ => return Err(AppError::Forbidden("Only super_admin or accountant can edit trips".into())),
+        }
+
+        // Daily cap check — exclude the current trip from existing total
+        let cap = self.repo.get_trip_cap().await?;
+        let existing = self.repo.daily_total_excluding(driver_id, trip_date, trip_id).await?;
+        let new_total = cash_aed + uber_cash_aed + bolt_cash_aed + card_aed;
+
+        if existing + new_total > cap {
+            return Err(AppError::BadRequest(format!(
+                "Daily cap of AED {cap} exceeded (current: AED {existing}, adding: AED {new_total})"
+            )));
+        }
+
+        let trip = self.repo
+            .update(trip_id, CreateTrip {
+                driver_id,
+                vehicle_id,
+                entered_by: actor_id,
+                trip_date,
+                cash_aed,
+                uber_cash_aed,
+                bolt_cash_aed,
+                card_aed,
+                source: TripSource::Manual,
+                notes,
+            })
+            .await?;
+
+        self.audit.log(actor_id, actor_role, "trip", Some(trip_id), "trip.updated",
+            Some(serde_json::json!({ "driver_id": driver_id, "trip_date": trip_date }))).await?;
+
+        Ok(trip)
+    }
+
+    pub async fn monthly_earnings(
+        &self,
+        driver_id: Uuid,
+        month: NaiveDate,
+    ) -> Result<MonthlyEarnings, AppError> {
+        self.repo.monthly_earnings(driver_id, month).await
     }
 
     pub async fn delete(
@@ -129,7 +190,7 @@ impl TripService {
     }
 
     /// Parse CSV, validate each row against daily cap, return preview.
-    /// CSV format: date,cash_aed,card_aed,other_aed,notes (header required)
+    /// CSV format: date,cash_aed,uber_cash_aed,bolt_cash_aed,card_aed,notes (header required)
     pub async fn csv_preview(
         &self,
         driver_id: Uuid,
@@ -154,8 +215,9 @@ impl TripService {
                         row_num,
                         trip_date: String::new(),
                         cash_aed: Decimal::ZERO,
+                        uber_cash_aed: Decimal::ZERO,
+                        bolt_cash_aed: Decimal::ZERO,
                         card_aed: Decimal::ZERO,
-                        other_aed: Decimal::ZERO,
                         notes: None,
                         error: Some(format!("CSV parse error: {e}")),
                         cap_warning: None,
@@ -169,15 +231,16 @@ impl TripService {
                                 row_num,
                                 trip_date: record.get(0).unwrap_or("").to_string(),
                                 cash_aed: Decimal::ZERO,
+                                uber_cash_aed: Decimal::ZERO,
+                                bolt_cash_aed: Decimal::ZERO,
                                 card_aed: Decimal::ZERO,
-                                other_aed: Decimal::ZERO,
                                 notes: None,
                                 error: Some(e),
                                 cap_warning: None,
                             });
                         }
-                        Ok((date, cash, card, other, notes)) => {
-                            let row_total = cash + card + other;
+                        Ok((date, cash, uber_cash, bolt_cash, card, notes)) => {
+                            let row_total = cash + uber_cash + bolt_cash + card;
                             let db_total = self.repo.daily_total(driver_id, date).await.unwrap_or(Decimal::ZERO);
                             let pending = *pending_totals.get(&date).unwrap_or(&Decimal::ZERO);
                             let combined = db_total + pending + row_total;
@@ -196,8 +259,9 @@ impl TripService {
                                 row_num,
                                 trip_date: date.to_string(),
                                 cash_aed: cash,
+                                uber_cash_aed: uber_cash,
+                                bolt_cash_aed: bolt_cash,
                                 card_aed: card,
-                                other_aed: other,
                                 notes,
                                 error: None,
                                 cap_warning,
@@ -230,8 +294,9 @@ impl TripService {
                     entered_by: actor_id,
                     trip_date: date,
                     cash_aed: r.cash_aed,
+                    uber_cash_aed: r.uber_cash_aed,
+                    bolt_cash_aed: r.bolt_cash_aed,
                     card_aed: r.card_aed,
-                    other_aed: r.other_aed,
                     source: TripSource::CsvImport,
                     notes: r.notes,
                 })
@@ -250,7 +315,7 @@ impl TripService {
 
 fn parse_csv_row(
     record: &csv::StringRecord,
-) -> Result<(NaiveDate, Decimal, Decimal, Decimal, Option<String>), String> {
+) -> Result<(NaiveDate, Decimal, Decimal, Decimal, Decimal, Option<String>), String> {
     let date_str = record.get(0).unwrap_or("").trim();
     let date = date_str
         .parse::<NaiveDate>()
@@ -263,25 +328,32 @@ fn parse_csv_row(
         .parse()
         .map_err(|_| "Invalid cash_aed value".to_string())?;
 
-    let card: Decimal = record
+    let uber_cash: Decimal = record
         .get(2)
+        .unwrap_or("0")
+        .trim()
+        .parse()
+        .map_err(|_| "Invalid uber_cash_aed value".to_string())?;
+
+    let bolt_cash: Decimal = record
+        .get(3)
+        .unwrap_or("0")
+        .trim()
+        .parse()
+        .map_err(|_| "Invalid bolt_cash_aed value".to_string())?;
+
+    let card: Decimal = record
+        .get(4)
         .unwrap_or("0")
         .trim()
         .parse()
         .map_err(|_| "Invalid card_aed value".to_string())?;
 
-    let other: Decimal = record
-        .get(3)
-        .unwrap_or("0")
-        .trim()
-        .parse()
-        .map_err(|_| "Invalid other_aed value".to_string())?;
-
     let notes = record
-        .get(4)
+        .get(5)
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(str::to_string);
 
-    Ok((date, cash, card, other, notes))
+    Ok((date, cash, uber_cash, bolt_cash, card, notes))
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "WITH ins AS (\n                INSERT INTO drivers (profile_id, nationality, salary_type, room_rent_aed, commission_rate)\n                VALUES ($1, $2, $3, $4, $5)\n                RETURNING id, profile_id, nationality, salary_type, is_active, self_entry_enabled, room_rent_aed, commission_rate, created_at\n               )\n               SELECT ins.id, ins.profile_id, p.full_name, p.email,\n                      ins.nationality, ins.salary_type as \"salary_type: SalaryType\",\n                      ins.is_active, ins.self_entry_enabled,\n                      ins.room_rent_aed, ins.commission_rate,\n                      ins.created_at\n               FROM ins JOIN profiles p ON p.id = ins.profile_id",
+  "query": "WITH upd AS (\n                UPDATE drivers SET nationality = $2, salary_type = $3, room_rent_aed = $4, commission_rate = $5, joining_date = $6, updated_at = NOW()\n                WHERE id = $1\n                RETURNING id, profile_id, nationality, salary_type, is_active, self_entry_enabled, room_rent_aed, commission_rate, joining_date, created_at\n               )\n               SELECT upd.id, upd.profile_id, p.full_name, p.email,\n                      upd.nationality, upd.salary_type as \"salary_type: SalaryType\",\n                      upd.is_active, upd.self_entry_enabled,\n                      upd.room_rent_aed, upd.commission_rate,\n                      upd.joining_date,\n                      upd.created_at\n               FROM upd JOIN profiles p ON p.id = upd.profile_id",
   "describe": {
     "columns": [
       {
@@ -66,6 +66,11 @@
       },
       {
         "ordinal": 10,
+        "name": "joining_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
@@ -87,7 +92,8 @@
           }
         },
         "Numeric",
-        "Numeric"
+        "Numeric",
+        "Date"
       ]
     },
     "nullable": [
@@ -101,8 +107,9 @@
       false,
       false,
       true,
+      true,
       false
     ]
   },
-  "hash": "b77f5fd575520fdf4d6446699f063718b094b29614038c23b65c93c2d1b6c310"
+  "hash": "8bdbfb64144299cb00b55c4010cefab9fadd48afe202f70de0010a010a44420f"
 }

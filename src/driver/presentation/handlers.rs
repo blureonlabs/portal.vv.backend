@@ -43,7 +43,7 @@ pub async fn create_driver(
     require_role(&user, &[Role::SuperAdmin])?;
     let body = body.into_inner();
     let role = user.role.clone();
-    let driver = svc.create(user.id, &role, body.profile_id, body.nationality, body.salary_type, body.room_rent_aed, body.commission_rate).await?;
+    let driver = svc.create(user.id, &role, body.profile_id, body.nationality, body.salary_type, body.room_rent_aed, body.commission_rate, body.joining_date).await?;
     Ok(HttpResponse::Created().json(ApiResponse::ok(DriverResponse::from(driver))))
 }
 
@@ -56,7 +56,7 @@ pub async fn update_driver(
     require_role(&user, &[Role::SuperAdmin, Role::Accountant])?;
     let body = body.into_inner();
     let role = user.role.clone();
-    let driver = svc.update(user.id, &role, path.into_inner(), body.nationality, body.salary_type, body.room_rent_aed, body.commission_rate).await?;
+    let driver = svc.update(user.id, &role, path.into_inner(), body.nationality, body.salary_type, body.room_rent_aed, body.commission_rate, body.joining_date).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(DriverResponse::from(driver))))
 }
 
@@ -133,7 +133,7 @@ pub async fn create_driver_with_account(
     auth_repo.create_profile(user_id, &b.full_name, &b.email, &Role::Driver, b.phone.as_deref()).await?;
 
     // 3. Create driver record
-    let driver: DriverResponse = svc.repo.create(user_id, &b.nationality, b.salary_type, b.room_rent_aed, b.commission_rate).await?.into();
+    let driver: DriverResponse = svc.repo.create(user_id, &b.nationality, b.salary_type, b.room_rent_aed, b.commission_rate, b.joining_date).await?.into();
 
     Ok(HttpResponse::Created().json(ApiResponse::ok(driver)))
 }

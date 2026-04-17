@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "WITH upd AS (\n                UPDATE drivers SET nationality = $2, salary_type = $3, room_rent_aed = $4, commission_rate = $5, updated_at = NOW()\n                WHERE id = $1\n                RETURNING id, profile_id, nationality, salary_type, is_active, self_entry_enabled, room_rent_aed, commission_rate, created_at\n               )\n               SELECT upd.id, upd.profile_id, p.full_name, p.email,\n                      upd.nationality, upd.salary_type as \"salary_type: SalaryType\",\n                      upd.is_active, upd.self_entry_enabled,\n                      upd.room_rent_aed, upd.commission_rate,\n                      upd.created_at\n               FROM upd JOIN profiles p ON p.id = upd.profile_id",
+  "query": "SELECT d.id, d.profile_id, p.full_name, p.email,\n                      d.nationality, d.salary_type as \"salary_type: SalaryType\",\n                      d.is_active, d.self_entry_enabled,\n                      d.room_rent_aed, d.commission_rate,\n                      d.joining_date,\n                      d.created_at\n               FROM drivers d\n               JOIN profiles p ON p.id = d.profile_id\n               ORDER BY p.full_name",
   "describe": {
     "columns": [
       {
@@ -66,29 +66,17 @@
       },
       {
         "ordinal": 10,
+        "name": "joining_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
-      "Left": [
-        "Uuid",
-        "Text",
-        {
-          "Custom": {
-            "name": "salary_type",
-            "kind": {
-              "Enum": [
-                "commission",
-                "target_high",
-                "target_low"
-              ]
-            }
-          }
-        },
-        "Numeric",
-        "Numeric"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
@@ -101,8 +89,9 @@
       false,
       false,
       true,
+      true,
       false
     ]
   },
-  "hash": "2a44eecb991fce9078465ddf7058f51b454a098e8d2de1587b7ada5890e81b8a"
+  "hash": "3082ea5bcaf9d02bd15b083ef86bfd0af93c17871544ab4f3845feb5e789b351"
 }

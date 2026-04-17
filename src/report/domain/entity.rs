@@ -3,6 +3,19 @@ use rust_decimal::Decimal;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
+pub struct DocumentExpiryAlert {
+    pub document_id: Uuid,
+    pub entity_type: String,
+    pub entity_id: Uuid,
+    pub entity_name: String,
+    pub doc_type: String,
+    pub file_name: String,
+    pub expiry_date: NaiveDate,
+    pub days_until_expiry: i64,
+    pub is_expired: bool,
+}
+
+#[derive(Debug, Clone)]
 pub struct DashboardKpis {
     pub revenue_mtd: Decimal,
     pub revenue_cash_mtd: Decimal,
@@ -21,6 +34,7 @@ pub struct DashboardKpis {
     pub revenue_trend: Vec<DayRevenue>,
     pub cash_shortfall_drivers: Vec<CashShortfallAlert>,
     pub service_overdue_vehicles: Vec<ServiceOverdueAlert>,
+    pub document_expiry_alerts: Vec<DocumentExpiryAlert>,
 }
 
 #[derive(Debug, Clone)]

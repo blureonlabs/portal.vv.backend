@@ -5,9 +5,9 @@ use uuid::Uuid;
 use crate::common::error::AppError;
 use crate::report::domain::entity::{
     AdvanceReportRow, CashFlowRow, CashShortfallAlert, DashboardKpis, DayRevenue,
-    DriverFinancialRow, DriverPerfRow, DriverSummaryRow, FinanceReport, FinanceSummaryRow,
-    InsuranceAlert, LeaveReportRow, SalaryReportRow, ServiceOverdueAlert, TripDetailRow,
-    VehicleReportRow,
+    DocumentExpiryAlert, DriverFinancialRow, DriverPerfRow, DriverSummaryRow, FinanceReport,
+    FinanceSummaryRow, InsuranceAlert, LeaveReportRow, SalaryReportRow, ServiceOverdueAlert,
+    TripDetailRow, VehicleReportRow,
 };
 
 pub struct ReportService {
@@ -260,6 +260,16 @@ impl ReportService {
             cash_submitted: Option<Decimal>,
         }
         #[derive(sqlx::FromRow)]
+        struct DocExpiryRow {
+            document_id: Uuid,
+            entity_type: String,
+            entity_id: Uuid,
+            entity_name: String,
+            doc_type: String,
+            file_name: String,
+            expiry_date: NaiveDate,
+        }
+        #[derive(sqlx::FromRow)]
         struct SvcOverdueRow {
             vehicle_id: Uuid,
             plate_number: String,
@@ -332,8 +342,9 @@ impl ReportService {
             ).bind(today).fetch_all(pool),
         )?;
 
-        // Batch 4 (1 query — the heaviest one, runs alone)
-        let shortfall_rows = sqlx::query_as::<sqlx::Postgres, ShortfallRow>(
+        // Batch 4 (2 queries — shortfall + doc expiry)
+        let (shortfall_rows, doc_expiry_rows) = tokio::try_join!(
+            sqlx::query_as::<sqlx::Postgres, ShortfallRow>(
                 "SELECT d.id AS driver_id, p.full_name AS driver_name, \
                         COALESCE(t.cash_received, 0) AS cash_received, \
                         COALESCE(h.cash_submitted, 0) AS cash_submitted \
@@ -352,7 +363,29 @@ impl ReportService {
                      GROUP BY driver_id \
                  ) h ON h.driver_id = d.id \
                  WHERE d.is_active = true AND (t.driver_id IS NOT NULL OR h.driver_id IS NOT NULL)"
-        ).bind(month_start).bind(today).fetch_all(pool).await?;
+            ).bind(month_start).bind(today).fetch_all(pool),
+            sqlx::query_as::<sqlx::Postgres, DocExpiryRow>(
+                "SELECT d.id AS document_id, \
+                        d.entity_type::text AS entity_type, \
+                        d.entity_id, \
+                        d.doc_type::text AS doc_type, \
+                        d.file_name, \
+                        d.expiry_date, \
+                        CASE \
+                          WHEN d.entity_type::text = 'driver' THEN p.full_name \
+                          WHEN d.entity_type::text = 'vehicle' THEN v.plate_number \
+                          ELSE 'Unknown' \
+                        END AS entity_name \
+                 FROM documents d \
+                 LEFT JOIN drivers dr ON d.entity_type::text = 'driver' AND d.entity_id = dr.id \
+                 LEFT JOIN profiles p ON dr.profile_id = p.id \
+                 LEFT JOIN vehicles v ON d.entity_type::text = 'vehicle' AND d.entity_id = v.id \
+                 WHERE d.expiry_date IS NOT NULL \
+                   AND d.expiry_date <= $1 + INTERVAL '30 days' \
+                   AND d.expiry_date >= $1 - INTERVAL '7 days' \
+                 ORDER BY d.expiry_date ASC"
+            ).bind(today).fetch_all(pool),
+        )?;
 
         // Resolve cash shortfall threshold (default 0 = all shortfalls shown)
         let threshold: Decimal = threshold_row
@@ -416,6 +449,25 @@ impl ReportService {
             })
             .collect();
 
+        let document_expiry_alerts = doc_expiry_rows
+            .into_iter()
+            .map(|r| {
+                let days_until_expiry = (r.expiry_date - today).num_days();
+                let is_expired = r.expiry_date < today;
+                DocumentExpiryAlert {
+                    document_id: r.document_id,
+                    entity_type: r.entity_type,
+                    entity_id: r.entity_id,
+                    entity_name: r.entity_name,
+                    doc_type: r.doc_type,
+                    file_name: r.file_name,
+                    expiry_date: r.expiry_date,
+                    days_until_expiry,
+                    is_expired,
+                }
+            })
+            .collect();
+
         let revenue_mtd = mtd.revenue.unwrap_or(Decimal::ZERO);
         let revenue_cash_mtd = mtd.cash_total.unwrap_or(Decimal::ZERO);
         let revenue_card_mtd = mtd.card_total.unwrap_or(Decimal::ZERO);
@@ -440,6 +492,7 @@ impl ReportService {
             revenue_trend,
             cash_shortfall_drivers,
             service_overdue_vehicles,
+            document_expiry_alerts,
         })
     }
 

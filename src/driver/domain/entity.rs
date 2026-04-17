@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -17,6 +17,7 @@ pub struct Driver {
     pub self_entry_enabled: bool,
     pub room_rent_aed: Decimal,
     pub commission_rate: Option<Decimal>,
+    pub joining_date: Option<NaiveDate>,
     pub created_at: DateTime<Utc>,
 }
 
