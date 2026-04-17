@@ -122,8 +122,11 @@ pub async fn create_driver_with_account(
     auth_repo: web::Data<Arc<dyn crate::auth::domain::repository::AuthRepository>>,
     body: web::Json<CreateDriverWithAccountRequest>,
 ) -> Result<HttpResponse, AppError> {
+    use crate::common::validation::validate_string_length;
     require_role(&user, &[Role::SuperAdmin])?;
     let b = body.into_inner();
+    validate_string_length("full_name", &b.full_name, 200)?;
+    validate_string_length("email", &b.email, 254)?;
     validate_password(&b.password).map_err(AppError::BadRequest)?;
 
     // 1. Create Supabase auth user

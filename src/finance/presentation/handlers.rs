@@ -46,7 +46,9 @@ pub async fn create_expense(
     svc: web::Data<Arc<FinanceService>>,
     body: web::Json<CreateExpenseRequest>,
 ) -> Result<HttpResponse, AppError> {
+    use crate::common::validation::validate_amount;
     let body = body.into_inner();
+    validate_amount("amount_aed", body.amount_aed)?;
     let expense = svc.create_expense(
         user.id,
         &user.role,
@@ -84,7 +86,9 @@ pub async fn create_handover(
     svc: web::Data<Arc<FinanceService>>,
     body: web::Json<CreateHandoverRequest>,
 ) -> Result<HttpResponse, AppError> {
+    use crate::common::validation::validate_amount;
     let body = body.into_inner();
+    validate_amount("amount_aed", body.amount_aed)?;
     let handover = svc.create_handover(user.id, &user.role, body.driver_id, body.amount_aed).await?;
     Ok(HttpResponse::Created().json(ApiResponse::ok(HandoverResponse::from(handover))))
 }

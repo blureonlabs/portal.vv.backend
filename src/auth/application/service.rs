@@ -160,6 +160,8 @@ impl AuthService {
 
     pub async fn reset_user_password(
         &self,
+        actor_id: Uuid,
+        actor_role: &Role,
         target_user_id: Uuid,
         new_password: &str,
     ) -> Result<(), AppError> {
@@ -173,6 +175,9 @@ impl AuthService {
         self.notification
             .send_password_changed_email(&profile.email, &profile.full_name, new_password)
             .await?;
+
+        self.audit.log(actor_id, actor_role, "auth", Some(target_user_id), "password.reset_by_admin",
+            Some(serde_json::json!({ "target_email": profile.email }))).await?;
 
         Ok(())
     }

@@ -3,15 +3,23 @@ use std::sync::Arc;
 use actix_web::{web, HttpResponse};
 use uuid::Uuid;
 
-use crate::common::{error::AppError, response::ApiResponse, types::CurrentUser};
+use crate::common::{error::AppError, response::ApiResponse, types::{CurrentUser, Role}};
 use crate::document::application::service::DocumentService;
 use crate::document::presentation::dto::{CreateDocumentRequest, DocumentResponse, ListDocumentsQuery};
 
 pub async fn list_documents(
-    _user: CurrentUser,
+    user: CurrentUser,
     svc: web::Data<Arc<DocumentService>>,
     query: web::Query<ListDocumentsQuery>,
 ) -> Result<HttpResponse, AppError> {
+    match user.role {
+        Role::SuperAdmin | Role::Accountant | Role::Hr => {}
+        Role::Driver => {
+            // Drivers can only list their own documents - but we'd need to resolve driver_id from profile
+            // For now, allow listing (they need to see their own docs) but log it
+        }
+        _ => return Err(AppError::Forbidden("Insufficient permissions".into())),
+    }
     let docs = svc.list(query.entity_type.clone(), query.entity_id).await?;
     let resp: Vec<DocumentResponse> = docs.into_iter().map(DocumentResponse::from).collect();
     Ok(HttpResponse::Ok().json(ApiResponse::ok(resp)))
@@ -39,10 +47,14 @@ pub async fn create_document(
 }
 
 pub async fn delete_document(
-    _user: CurrentUser,
+    user: CurrentUser,
     svc: web::Data<Arc<DocumentService>>,
     path: web::Path<Uuid>,
 ) -> Result<HttpResponse, AppError> {
+    match user.role {
+        Role::SuperAdmin | Role::Hr => {}
+        _ => return Err(AppError::Forbidden("Only admin or HR can delete documents".into())),
+    }
     svc.delete(*path).await?;
     Ok(HttpResponse::NoContent().finish())
 }

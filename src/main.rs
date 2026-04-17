@@ -110,7 +110,7 @@ async fn main() -> anyhow::Result<()> {
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::try_from_default_env()
-            .unwrap_or_else(|_| "fms=debug,actix_web=info".into()))
+            .unwrap_or_else(|_| "fms=info,actix_web=info".into()))
         .with(tracing_subscriber::fmt::layer())
         .init();
 
@@ -243,7 +243,9 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
 
     let server = HttpServer::new(move || {
         let cors = actix_cors::Cors::default()
-            .allow_any_origin()
+            .allowed_origin("https://portal.voiturevoyages.com")
+            .allowed_origin("http://localhost:5173")  // dev
+            .allowed_origin("http://localhost:3000")  // dev
             .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
             .allowed_headers(vec!["Authorization", "Content-Type"])
             .max_age(3600);

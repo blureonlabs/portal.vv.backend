@@ -1,5 +1,6 @@
 use actix_web::HttpResponse;
 use serde_json::json;
+use tracing;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
@@ -33,6 +34,14 @@ impl actix_web::ResponseError for AppError {
     fn error_response(&self) -> HttpResponse {
         use actix_web::http::StatusCode;
 
+        // Database errors are sanitized — log the real error, return a generic message.
+        if let AppError::Database(ref e) = self {
+            tracing::error!("Database error: {:?}", e);
+            return HttpResponse::InternalServerError().json(json!({
+                "error": "Internal server error"
+            }));
+        }
+
         let status = match self {
             AppError::NotFound(_)      => StatusCode::NOT_FOUND,
             AppError::Forbidden(_)     => StatusCode::FORBIDDEN,
@@ -40,7 +49,7 @@ impl actix_web::ResponseError for AppError {
             AppError::BadRequest(_)    => StatusCode::BAD_REQUEST,
             AppError::Conflict(_)      => StatusCode::CONFLICT,
             AppError::Unprocessable(_) => StatusCode::UNPROCESSABLE_ENTITY,
-            AppError::Database(_)      => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::Database(_)      => unreachable!("handled above"),
             AppError::Internal(_)      => StatusCode::INTERNAL_SERVER_ERROR,
         };
 

@@ -23,6 +23,10 @@ pub async fn update_setting(
     key: web::Path<String>,
     body: web::Json<UpdateSettingBody>,
 ) -> Result<HttpResponse, AppError> {
+    match user.role {
+        Role::SuperAdmin | Role::Accountant => {}
+        _ => return Err(AppError::Forbidden("Only super_admin or accountant can update settings".into())),
+    }
     let setting = svc.update(user.id, &user.role, &key, &body.value).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(SettingResponse::from(setting))))
 }

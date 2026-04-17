@@ -32,8 +32,22 @@ pub async fn generate_salary(
     driver_svc: web::Data<Arc<DriverService>>,
     body: web::Json<GenerateSalaryBody>,
 ) -> Result<HttpResponse, AppError> {
+    use crate::common::validation::validate_amount;
     require_admin(&user)?;
     let period_month = parse_month(&body.period_month)?;
+
+    // Validate monetary amounts
+    validate_amount("total_earnings_aed", body.total_earnings_aed)?;
+    validate_amount("total_cash_received_aed", body.total_cash_received_aed)?;
+    if let Some(v) = body.total_cash_submit_aed { validate_amount("total_cash_submit_aed", v)?; }
+    validate_amount("cash_not_handover_aed", body.cash_not_handover_aed)?;
+    validate_amount("car_charging_aed", body.car_charging_aed)?;
+    if let Some(v) = body.car_charging_used_aed { validate_amount("car_charging_used_aed", v)?; }
+    validate_amount("salik_used_aed", body.salik_used_aed)?;
+    validate_amount("salik_refund_aed", body.salik_refund_aed)?;
+    validate_amount("rta_fine_aed", body.rta_fine_aed)?;
+    validate_amount("card_service_charges_aed", body.card_service_charges_aed)?;
+    if let Some(v) = body.room_rent_aed { validate_amount("room_rent_aed", v)?; }
 
     // Fetch the driver to get per-driver room_rent and commission_rate defaults.
     let driver = driver_svc.get(body.driver_id).await?;

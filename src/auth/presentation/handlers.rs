@@ -155,9 +155,12 @@ pub async fn invite_user(
     svc: web::Data<Arc<AuthService>>,
     body: web::Json<InviteUserRequest>,
 ) -> Result<HttpResponse, AppError> {
+    use crate::common::validation::validate_string_length;
     require_role(&user, &[Role::SuperAdmin])?;
 
     let body = body.into_inner();
+    validate_string_length("full_name", &body.full_name, 200)?;
+    validate_string_length("email", &body.email, 254)?;
     let actor_role = user.role.clone();
     let invite_id = svc
         .invite_user(user.id, &actor_role, body.email, body.full_name, body.role)
@@ -248,6 +251,6 @@ pub async fn reset_user_password(
 
     validate_password(&body.password).map_err(AppError::BadRequest)?;
 
-    svc.reset_user_password(target_id, &body.password).await?;
+    svc.reset_user_password(user.id, &user.role, target_id, &body.password).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(())))
 }

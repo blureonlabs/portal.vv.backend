@@ -57,8 +57,16 @@ pub async fn create_trip(
     svc: web::Data<Arc<TripService>>,
     body: web::Json<CreateTripRequest>,
 ) -> Result<HttpResponse, AppError> {
+    use crate::common::validation::validate_amount;
     let body = body.into_inner();
     let actor_driver_id = resolve_driver_id(&svc, &user).await?;
+
+    // Validate monetary amounts
+    validate_amount("cash_aed", body.cash_aed)?;
+    if let Some(v) = body.uber_cash_aed { validate_amount("uber_cash_aed", v)?; }
+    if let Some(v) = body.bolt_cash_aed { validate_amount("bolt_cash_aed", v)?; }
+    if let Some(v) = body.card_aed { validate_amount("card_aed", v)?; }
+    if let Some(v) = body.other_aed { validate_amount("other_aed", v)?; }
 
     // uber_cash_aed takes priority; fall back to other_aed for backward compat
     let uber_cash = body.uber_cash_aed
