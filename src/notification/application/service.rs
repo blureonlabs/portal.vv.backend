@@ -316,35 +316,6 @@ impl NotificationService {
         self.resend.send(to, &subject, &html).await
     }
 
-    pub async fn send_password_changed_email(
-        &self,
-        to: &str,
-        name: &str,
-        new_password: &str,
-    ) -> Result<(), AppError> {
-        let subject = "Password Updated — Voiture Voyages FMS";
-        let body = format!(
-            r#"<p style="color:#374151;margin:0 0 16px;font-size:15px;line-height:1.6">
-  Hello <strong>{name}</strong>,
-</p>
-<p style="color:#374151;margin:0 0 24px;font-size:15px;line-height:1.6">
-  An administrator has reset your FMS account password. Your new temporary password is shown below.
-</p>
-<div style="margin:0 0 24px;padding:20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;text-align:center">
-  <p style="margin:0 0 8px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1px">Temporary Password</p>
-  <p style="margin:0;font-size:22px;font-weight:700;letter-spacing:4px;color:#161f3f;font-family:monospace">{new_password}</p>
-</div>
-<p style="color:#374151;margin:0 0 16px;font-size:15px;line-height:1.6">
-  Please log in and change your password immediately.
-</p>
-<p style="color:#6b7280;margin:0;font-size:13px;line-height:1.5">
-  If you did not expect this change, contact your administrator immediately.
-</p>"#
-        );
-        let html = Self::email_template("Password Updated", &body);
-        self.resend.send(to, subject, &html).await
-    }
-
     // ── Utilities ────────────────────────────────────────────────────────────
 
     fn capitalise(s: &str) -> String {

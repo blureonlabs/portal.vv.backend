@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use actix_web::{web, App, HttpServer, HttpResponse};
+use actix_governor::{Governor, GovernorConfigBuilder};
 use clap::{Parser, Subcommand};
 use dotenvy::dotenv;
 use tracing::info;
@@ -241,6 +242,12 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let notification_svc_data = web::Data::new(Arc::clone(&notification_svc));
     let document_svc_data = web::Data::new(Arc::clone(&document_svc));
 
+    let governor_conf = GovernorConfigBuilder::default()
+        .seconds_per_request(30)
+        .burst_size(60)
+        .finish()
+        .unwrap();
+
     let server = HttpServer::new(move || {
         let cors = actix_cors::Cors::default()
             .allowed_origin("https://portal.voiturevoyages.com")
@@ -252,6 +259,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
 
         App::new()
             .wrap(cors)
+            .wrap(Governor::new(&governor_conf))
             .wrap(tracing_actix_web::TracingLogger::default())
             .app_data(config_data.clone())
             .app_data(db_data.clone())

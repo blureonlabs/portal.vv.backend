@@ -31,11 +31,6 @@ pub struct UpdateAvatarRequest {
     pub avatar_url: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ResetPasswordRequest {
-    pub password: String,
-}
-
 // ---------- Responses ----------
 
 #[derive(Debug, Serialize)]

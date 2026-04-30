@@ -11,7 +11,7 @@ use crate::auth::application::service::AuthService;
 use crate::auth::domain::repository::AuthRepository;
 use crate::auth::presentation::dto::{
     AcceptInviteRequest, ForgotPasswordRequest, InviteResponse, InviteUserRequest, MeResponse,
-    ResetPasswordRequest, UpdateAvatarRequest, UserResponse,
+    UpdateAvatarRequest, UserResponse,
 };
 use crate::common::{
     error::AppError,
@@ -225,7 +225,6 @@ pub async fn reset_user_password(
     user: CurrentUser,
     svc: web::Data<Arc<AuthService>>,
     path: web::Path<Uuid>,
-    body: web::Json<ResetPasswordRequest>,
 ) -> Result<HttpResponse, AppError> {
     let target_id = path.into_inner();
 
@@ -250,8 +249,6 @@ pub async fn reset_user_password(
         }
     }
 
-    validate_password(&body.password).map_err(AppError::BadRequest)?;
-
-    svc.reset_user_password(user.id, &user.role, target_id, &body.password).await?;
+    svc.send_password_reset_link(user.id, &user.role, target_id).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(())))
 }

@@ -95,8 +95,15 @@ impl AuthService {
 
         let user_id = self.supabase.create_user(&invite.email, &password).await?;
 
-        self.repo.insert_profile(user_id, invite.role.clone(), &full_name, &invite.email, Some(invite.invited_by)).await?;
-        self.repo.update_invite_status(invite.id, InviteStatus::Accepted).await?;
+        // Compensate: if DB operations fail, delete the Supabase user we just created
+        if let Err(e) = self.repo.insert_profile(user_id, invite.role.clone(), &full_name, &invite.email, Some(invite.invited_by)).await {
+            let _ = self.supabase.delete_user(user_id).await;
+            return Err(e);
+        }
+        if let Err(e) = self.repo.update_invite_status(invite.id, InviteStatus::Accepted).await {
+            let _ = self.supabase.delete_user(user_id).await;
+            return Err(e);
+        }
 
         self.audit.log(
             user_id,
@@ -158,25 +165,26 @@ impl AuthService {
         Ok(())
     }
 
-    pub async fn reset_user_password(
+    pub async fn send_password_reset_link(
         &self,
         actor_id: Uuid,
         actor_role: &Role,
         target_user_id: Uuid,
-        new_password: &str,
     ) -> Result<(), AppError> {
         let profile = self.repo
             .find_profile_by_id(target_user_id)
             .await?
             .ok_or_else(|| AppError::NotFound("User not found".into()))?;
 
-        self.supabase.update_user_password(target_user_id, new_password).await?;
-
-        self.notification
-            .send_password_changed_email(&profile.email, &profile.full_name, new_password)
+        let reset_url = self.supabase
+            .generate_recovery_link(target_user_id, &self.config.frontend_url)
             .await?;
 
-        self.audit.log(actor_id, actor_role, "auth", Some(target_user_id), "password.reset_by_admin",
+        self.notification
+            .send_password_reset_email(&profile.email, &reset_url)
+            .await?;
+
+        self.audit.log(actor_id, actor_role, "auth", Some(target_user_id), "password.reset_link_sent",
             Some(serde_json::json!({ "target_email": profile.email }))).await?;
 
         Ok(())

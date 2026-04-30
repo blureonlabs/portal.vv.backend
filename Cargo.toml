@@ -11,6 +11,7 @@ path = "src/main.rs"
 # Web framework
 actix-web = "4"
 actix-cors = "0.7"
+actix-governor = "0.6"
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }

@@ -161,14 +161,16 @@ impl InvoiceRepository for PgInvoiceRepository {
     }
 
     async fn next_sequence(&self, period_start: NaiveDate) -> Result<u32, AppError> {
-        let prefix = format!("INV-{}-", period_start.format("%Y-%m"));
-        let row = sqlx::query!(
-            "SELECT COUNT(*) AS count FROM invoices WHERE invoice_no LIKE $1",
-            format!("{}%", prefix)
+        let month = period_start.format("%Y-%m").to_string();
+        let seq: i32 = sqlx::query_scalar(
+            "INSERT INTO invoice_counters (month, last_seq) VALUES ($1, 1)
+             ON CONFLICT (month) DO UPDATE SET last_seq = invoice_counters.last_seq + 1
+             RETURNING last_seq"
         )
+        .bind(month)
         .fetch_one(&self.pool)
         .await?;
 
-        Ok(row.count.unwrap_or(0) as u32 + 1)
+        Ok(seq as u32)
     }
 }

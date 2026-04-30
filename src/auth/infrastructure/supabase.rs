@@ -26,6 +26,7 @@ struct SupabaseUser {
     id: Uuid,
 }
 
+#[allow(dead_code)]
 #[derive(Serialize)]
 struct UpdateUserPayload<'a> {
     password: &'a str,
@@ -129,6 +130,22 @@ impl SupabaseAdminClient {
         Ok(())
     }
 
+    pub async fn delete_user(&self, user_id: Uuid) -> Result<(), AppError> {
+        let res = self.http
+            .delete(format!("{}/admin/users/{}", self.base_url, user_id))
+            .header("apikey", &self.service_role_key)
+            .header("Authorization", format!("Bearer {}", self.service_role_key))
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+        if !res.status().is_success() {
+            let body = res.text().await.unwrap_or_default();
+            tracing::error!("Supabase delete_user failed for compensating transaction: {}", body);
+        }
+        Ok(()) // fire and forget — we return the original error
+    }
+
+    #[allow(dead_code)]
     pub async fn update_user_password(&self, user_id: Uuid, new_password: &str) -> Result<(), AppError> {
         let res = self.http
             .put(format!("{}/admin/users/{}", self.base_url, user_id))
