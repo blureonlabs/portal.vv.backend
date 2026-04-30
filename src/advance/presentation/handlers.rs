@@ -74,8 +74,10 @@ pub async fn request_advance(
     db: web::Data<crate::database::infrastructure::PgDatabase>,
     body: web::Json<RequestAdvanceBody>,
 ) -> Result<HttpResponse, AppError> {
+    use crate::common::validation::validate_string_length;
     use crate::database::domain::DatabasePool;
     let body = body.into_inner();
+    validate_string_length("reason", &body.reason, 2000)?;
     let actor_driver_id = resolve_driver_id(db.pg_pool(), user.id).await?;
     let advance = svc
         .request(user.id, &user.role, actor_driver_id, body.driver_id, body.amount_aed, body.reason)
@@ -123,8 +125,10 @@ pub async fn reject_advance(
     path: web::Path<Uuid>,
     body: web::Json<RejectAdvanceBody>,
 ) -> Result<HttpResponse, AppError> {
+    use crate::common::validation::validate_string_length;
     use crate::database::domain::DatabasePool;
     let body = body.into_inner();
+    validate_string_length("rejection_reason", &body.rejection_reason, 500)?;
     let rejection_reason = body.rejection_reason.clone();
     let advance = svc.reject(user.id, &user.role, *path, body.rejection_reason).await?;
     // Fire-and-forget notification

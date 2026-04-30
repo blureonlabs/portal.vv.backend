@@ -58,8 +58,10 @@ pub async fn submit_leave(
     db: web::Data<crate::database::infrastructure::PgDatabase>,
     body: web::Json<SubmitLeaveBody>,
 ) -> Result<HttpResponse, AppError> {
+    use crate::common::validation::validate_string_length;
     use crate::database::domain::DatabasePool;
     let body = body.into_inner();
+    validate_string_length("reason", &body.reason, 2000)?;
     let actor_driver_id = resolve_driver_id(db.pg_pool(), user.id).await?;
     let request = svc
         .submit(
@@ -122,8 +124,10 @@ pub async fn reject_leave(
     path: web::Path<Uuid>,
     body: web::Json<RejectLeaveBody>,
 ) -> Result<HttpResponse, AppError> {
+    use crate::common::validation::validate_string_length;
     use crate::database::domain::DatabasePool;
     let body = body.into_inner();
+    validate_string_length("rejection_reason", &body.rejection_reason, 500)?;
     let rejection_reason = body.rejection_reason.clone();
     let request = svc.reject(user.id, &user.role, *path, body.rejection_reason).await?;
     // Fire-and-forget notification

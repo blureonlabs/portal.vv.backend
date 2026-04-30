@@ -74,6 +74,7 @@ impl FromRequest for CurrentUser {
                     c
                 } else {
                     // HS256 fallback (older Supabase projects)
+                    tracing::warn!("JWT ES256 validation failed or JWKS vars not set, falling back to HS256");
                     let key = DecodingKey::from_secret(config.supabase_jwt_secret.as_bytes());
                     let mut v = Validation::new(Algorithm::HS256);
                     v.set_audience(&["authenticated"]);

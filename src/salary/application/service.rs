@@ -158,6 +158,15 @@ impl SalaryService {
             generated_by:            req.generated_by,
         };
 
+        // Guard: do not overwrite an already-approved or paid salary
+        if let Some(existing) = self.repo.find_by_driver_month(req.driver_id, req.period_month).await? {
+            if existing.status != crate::salary::domain::entity::SalaryStatus::Draft {
+                return Err(AppError::Conflict(
+                    "Salary for this period is already approved or paid and cannot be regenerated".into(),
+                ));
+            }
+        }
+
         let mut salary = self.repo.upsert(payload).await?;
 
         // Set a placeholder slip_url (real PDF generation to follow in a future sprint).

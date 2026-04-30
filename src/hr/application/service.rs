@@ -138,11 +138,43 @@ impl HrService {
             return Ok(0);
         }
 
-        let approved_count = self.repo.bulk_approve(&request_ids, actor_id).await?;
+        // Filter out requests that would create overlapping approved leave
+        let mut eligible_ids: Vec<Uuid> = Vec::new();
+        let mut skipped_ids: Vec<Uuid> = Vec::new();
+
+        for &id in &request_ids {
+            match self.repo.find_by_id(id).await {
+                Ok(req) => {
+                    let overlaps = self.repo
+                        .count_overlapping_approved(req.driver_id, req.from_date, req.to_date, Some(req.id))
+                        .await
+                        .unwrap_or(1); // if check fails, skip to be safe
+                    if overlaps > 0 {
+                        tracing::warn!(
+                            "Skipping bulk-approve for leave {} due to overlapping approved leave",
+                            id
+                        );
+                        skipped_ids.push(id);
+                    } else {
+                        eligible_ids.push(id);
+                    }
+                }
+                Err(_) => {
+                    skipped_ids.push(id);
+                }
+            }
+        }
+
+        if eligible_ids.is_empty() {
+            return Ok(0);
+        }
+
+        let approved_count = self.repo.bulk_approve(&eligible_ids, actor_id).await?;
 
         self.audit.log(actor_id, actor_role, "leave", None, "leave.bulk_approved",
             Some(serde_json::json!({
-                "request_ids": request_ids,
+                "request_ids": eligible_ids,
+                "skipped_ids": skipped_ids,
                 "approved_count": approved_count
             }))).await?;
 

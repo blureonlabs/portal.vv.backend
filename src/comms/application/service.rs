@@ -58,7 +58,17 @@ impl CommsService {
         }
 
         // Update final status
-        let final_status = if sent == count { BroadcastStatus::Sent } else if sent > 0 { BroadcastStatus::Sent } else { BroadcastStatus::Failed };
+        let final_status = if sent == count {
+            BroadcastStatus::Sent
+        } else if sent > 0 {
+            tracing::warn!(
+                "Broadcast {} partially sent: {}/{} recipients received it",
+                broadcast.id, sent, count
+            );
+            BroadcastStatus::Sent
+        } else {
+            BroadcastStatus::Failed
+        };
         self.repo.update_status(broadcast.id, &final_status, sent).await?;
 
         // Re-fetch to return updated record

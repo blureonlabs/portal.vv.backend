@@ -63,11 +63,22 @@ pub async fn update_driver(
 pub async fn deactivate_driver(
     user: CurrentUser,
     svc: web::Data<Arc<DriverService>>,
+    supabase: web::Data<Arc<SupabaseAdminClient>>,
     path: web::Path<Uuid>,
 ) -> Result<HttpResponse, AppError> {
     require_role(&user, &[Role::SuperAdmin])?;
+    let driver_id = path.into_inner();
     let role = user.role.clone();
-    svc.deactivate(user.id, &role, path.into_inner()).await?;
+
+    // Fetch driver to get the Supabase auth user id (profile_id)
+    let driver = svc.get(driver_id).await?;
+    svc.deactivate(user.id, &role, driver_id).await?;
+
+    // Disable the Supabase auth account (fire-and-forget; log error but don't fail)
+    if let Err(e) = supabase.disable_user(driver.profile_id).await {
+        tracing::error!("Failed to disable Supabase user {}: {}", driver.profile_id, e);
+    }
+
     Ok(HttpResponse::Ok().json(ApiResponse::ok(())))
 }
 

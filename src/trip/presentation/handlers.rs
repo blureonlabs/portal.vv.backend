@@ -67,6 +67,11 @@ pub async fn create_trip(
     if let Some(v) = body.bolt_cash_aed { validate_amount("bolt_cash_aed", v)?; }
     if let Some(v) = body.card_aed { validate_amount("card_aed", v)?; }
     if let Some(v) = body.other_aed { validate_amount("other_aed", v)?; }
+    // Validate notes length
+    {
+        use crate::common::validation::validate_string_length;
+        if let Some(ref notes) = body.notes { validate_string_length("notes", notes, 2000)?; }
+    }
 
     // uber_cash_aed takes priority; fall back to other_aed for backward compat
     let uber_cash = body.uber_cash_aed
@@ -100,8 +105,20 @@ pub async fn update_trip(
     path: web::Path<Uuid>,
     body: web::Json<CreateTripRequest>,
 ) -> Result<HttpResponse, AppError> {
+    use crate::common::validation::validate_amount;
     let trip_id = path.into_inner();
     let body = body.into_inner();
+
+    // Validate monetary amounts
+    validate_amount("cash_aed", body.cash_aed)?;
+    if let Some(v) = body.uber_cash_aed { validate_amount("uber_cash_aed", v)?; }
+    if let Some(v) = body.bolt_cash_aed { validate_amount("bolt_cash_aed", v)?; }
+    if let Some(v) = body.card_aed { validate_amount("card_aed", v)?; }
+    // Validate notes length
+    {
+        use crate::common::validation::validate_string_length;
+        if let Some(ref notes) = body.notes { validate_string_length("notes", notes, 2000)?; }
+    }
 
     let uber_cash = body.uber_cash_aed
         .or(body.other_aed)

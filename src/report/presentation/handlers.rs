@@ -23,12 +23,24 @@ fn csv_response(content: String, filename: &str) -> HttpResponse {
         .body(content)
 }
 
+fn validate_date_range(from: chrono::NaiveDate, to: chrono::NaiveDate) -> Result<(), AppError> {
+    if from > to {
+        return Err(AppError::BadRequest("from_date must be before to_date".into()));
+    }
+    let max_days = (to - from).num_days();
+    if max_days > 366 {
+        return Err(AppError::BadRequest("Date range cannot exceed 366 days".into()));
+    }
+    Ok(())
+}
+
 pub async fn driver_summary(
     user: CurrentUser,
     svc: web::Data<Arc<ReportService>>,
     query: web::Query<ReportQuery>,
 ) -> Result<HttpResponse, AppError> {
     require_role(&user, &[Role::SuperAdmin, Role::Accountant])?;
+    validate_date_range(query.from, query.to)?;
 
     let rows = svc.driver_summary(query.from, query.to).await?;
     let resp: Vec<DriverSummaryResponse> = rows.into_iter().map(Into::into).collect();
@@ -45,6 +57,7 @@ pub async fn trip_detail(
     query: web::Query<ReportQuery>,
 ) -> Result<HttpResponse, AppError> {
     require_role(&user, &[Role::SuperAdmin, Role::Accountant, Role::Hr])?;
+    validate_date_range(query.from, query.to)?;
 
     let rows = svc.trip_detail(query.from, query.to, query.driver_id).await?;
     let resp: Vec<TripDetailResponse> = rows.into_iter().map(Into::into).collect();
@@ -61,6 +74,7 @@ pub async fn finance_summary(
     query: web::Query<ReportQuery>,
 ) -> Result<HttpResponse, AppError> {
     require_role(&user, &[Role::SuperAdmin, Role::Accountant])?;
+    validate_date_range(query.from, query.to)?;
 
     let report = svc.finance_summary(query.from, query.to).await?;
     let resp = FinanceSummaryResponse::from(report);
@@ -96,6 +110,7 @@ pub async fn advance_report(
     query: web::Query<ReportQuery>,
 ) -> Result<HttpResponse, AppError> {
     require_role(&user, &[Role::SuperAdmin, Role::Accountant])?;
+    validate_date_range(query.from, query.to)?;
 
     let rows = svc.advance_report(query.from, query.to).await?;
     let resp: Vec<AdvanceReportResponse> = rows.into_iter().map(Into::into).collect();
@@ -112,6 +127,7 @@ pub async fn cash_flow_report(
     query: web::Query<ReportQuery>,
 ) -> Result<HttpResponse, AppError> {
     require_role(&user, &[Role::SuperAdmin, Role::Accountant])?;
+    validate_date_range(query.from, query.to)?;
 
     let rows = svc.cash_flow_report(query.from, query.to).await?;
     let resp: Vec<CashFlowResponse> = rows.into_iter().map(Into::into).collect();
@@ -128,6 +144,7 @@ pub async fn leave_report(
     query: web::Query<ReportQuery>,
 ) -> Result<HttpResponse, AppError> {
     require_role(&user, &[Role::SuperAdmin, Role::Accountant, Role::Hr])?;
+    validate_date_range(query.from, query.to)?;
 
     let rows = svc.leave_report(query.from, query.to).await?;
     let resp: Vec<LeaveReportResponse> = rows.into_iter().map(Into::into).collect();
@@ -144,6 +161,7 @@ pub async fn salary_report(
     query: web::Query<ReportQuery>,
 ) -> Result<HttpResponse, AppError> {
     require_role(&user, &[Role::SuperAdmin, Role::Accountant])?;
+    validate_date_range(query.from, query.to)?;
 
     let rows = svc.salary_report(query.from, query.to).await?;
     let resp: Vec<SalaryReportResponse> = rows.into_iter().map(Into::into).collect();
@@ -160,6 +178,7 @@ pub async fn vehicle_report(
     query: web::Query<ReportQuery>,
 ) -> Result<HttpResponse, AppError> {
     require_role(&user, &[Role::SuperAdmin, Role::Accountant, Role::Hr])?;
+    validate_date_range(query.from, query.to)?;
 
     let rows = svc.vehicle_report(query.from, query.to).await?;
     let resp: Vec<VehicleReportResponse> = rows.into_iter().map(Into::into).collect();

@@ -10,13 +10,26 @@ use crate::document::presentation::dto::{CreateDocumentRequest, DocumentResponse
 pub async fn list_documents(
     user: CurrentUser,
     svc: web::Data<Arc<DocumentService>>,
+    db: web::Data<crate::database::infrastructure::PgDatabase>,
     query: web::Query<ListDocumentsQuery>,
 ) -> Result<HttpResponse, AppError> {
+    use crate::database::domain::DatabasePool;
     match user.role {
         Role::SuperAdmin | Role::Accountant | Role::Hr => {}
         Role::Driver => {
-            // Drivers can only list their own documents - but we'd need to resolve driver_id from profile
-            // For now, allow listing (they need to see their own docs) but log it
+            // Drivers can only list documents for their own driver entity
+            let actor_driver_id = sqlx::query!(
+                "SELECT id FROM drivers WHERE profile_id = $1",
+                user.id
+            )
+            .fetch_optional(db.pg_pool())
+            .await?
+            .map(|r| r.id)
+            .ok_or_else(|| AppError::Forbidden("No driver record linked to your account".into()))?;
+
+            if query.entity_id != actor_driver_id {
+                return Err(AppError::Forbidden("Access denied".into()));
+            }
         }
         _ => return Err(AppError::Forbidden("Insufficient permissions".into())),
     }

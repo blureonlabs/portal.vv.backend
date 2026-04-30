@@ -3,7 +3,8 @@ use std::sync::Arc;
 use actix_web::{web, HttpResponse};
 use uuid::Uuid;
 
-use crate::common::{error::AppError, response::{ApiResponse, PaginatedResponse}, types::CurrentUser};
+use crate::auth::presentation::handlers::require_role;
+use crate::common::{error::AppError, response::{ApiResponse, PaginatedResponse}, types::{CurrentUser, Role}};
 use crate::invoice::application::service::InvoiceService;
 use crate::invoice::domain::entity::LineItem;
 use crate::invoice::presentation::dto::{
@@ -56,10 +57,11 @@ pub async fn list_invoices(
 }
 
 pub async fn get_invoice(
-    _user: CurrentUser,
+    user: CurrentUser,
     svc: web::Data<Arc<InvoiceService>>,
     path: web::Path<Uuid>,
 ) -> Result<HttpResponse, AppError> {
+    require_role(&user, &[Role::SuperAdmin, Role::Accountant, Role::Hr])?;
     let invoice = svc.find_by_id(*path).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(InvoiceResponse::from(invoice))))
 }

@@ -272,7 +272,7 @@ impl TripRepository for PgTripRepository {
             (month.year(), month.month() + 1)
         };
         let next_month_start = NaiveDate::from_ymd_opt(next_year, next_month, 1)
-            .expect("valid next month date");
+            .ok_or_else(|| AppError::Internal("Date arithmetic overflow".into()))?;
 
         #[derive(sqlx::FromRow)]
         struct EarningsRow {

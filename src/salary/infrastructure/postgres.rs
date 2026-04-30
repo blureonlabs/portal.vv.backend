@@ -279,7 +279,7 @@ impl SalaryRepository for PgSalaryRepository {
     async fn approve(&self, id: Uuid, approved_by: Uuid) -> Result<Salary, AppError> {
         let row = sqlx::query_as::<_, SalaryRow>(
             "UPDATE salaries SET status = 'approved', approved_by = $2, approved_at = NOW() \
-             WHERE id = $1 \
+             WHERE id = $1 AND status = 'draft' \
              RETURNING id, driver_id, \
                (SELECT full_name FROM profiles WHERE id = (SELECT profile_id FROM drivers WHERE id = driver_id)) AS driver_name, \
                period_month, salary_type_snapshot, \
@@ -299,7 +299,7 @@ impl SalaryRepository for PgSalaryRepository {
         .bind(approved_by)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| AppError::NotFound(format!("Salary {id}")))?;
+        .ok_or_else(|| AppError::BadRequest("Salary is not in draft state".into()))?;
 
         Ok(row_to_salary(row))
     }
@@ -314,7 +314,7 @@ impl SalaryRepository for PgSalaryRepository {
         let row = sqlx::query_as::<_, SalaryRow>(
             "UPDATE salaries SET status = 'paid', payment_date = $2, payment_mode = $3, \
                payment_reference = $4, paid_at = NOW() \
-             WHERE id = $1 \
+             WHERE id = $1 AND status = 'approved' \
              RETURNING id, driver_id, \
                (SELECT full_name FROM profiles WHERE id = (SELECT profile_id FROM drivers WHERE id = driver_id)) AS driver_name, \
                period_month, salary_type_snapshot, \
@@ -336,7 +336,7 @@ impl SalaryRepository for PgSalaryRepository {
         .bind(payment_reference)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| AppError::NotFound(format!("Salary {id}")))?;
+        .ok_or_else(|| AppError::BadRequest("Salary must be approved before marking as paid".into()))?;
 
         Ok(row_to_salary(row))
     }

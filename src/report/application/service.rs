@@ -223,7 +223,8 @@ impl ReportService {
 
     pub async fn dashboard(&self) -> Result<DashboardKpis, AppError> {
         let today = Utc::now().date_naive();
-        let month_start = NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap();
+        let month_start = NaiveDate::from_ymd_opt(today.year(), today.month(), 1)
+            .ok_or_else(|| AppError::Internal("Date arithmetic overflow".into()))?;
         let thirty_days_ago = today - chrono::Duration::days(29);
 
         // Run ALL queries concurrently to minimize round-trip latency
@@ -498,7 +499,8 @@ impl ReportService {
 
     pub async fn driver_financials(&self) -> Result<Vec<DriverFinancialRow>, AppError> {
         let today = Utc::now().date_naive();
-        let month_start = NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap();
+        let month_start = NaiveDate::from_ymd_opt(today.year(), today.month(), 1)
+            .ok_or_else(|| AppError::Internal("Date arithmetic overflow".into()))?;
 
         #[derive(sqlx::FromRow)]
         struct Row {

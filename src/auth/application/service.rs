@@ -144,7 +144,7 @@ impl AuthService {
         self.repo.update_invite_token(invite_id, &token_hash).await?;
 
         let invite_url = format!("{}/accept-invite?token={}", self.config.frontend_url, raw_token);
-        self.notification.send_invite_email(&invite.email, &invite.email, &invite_url).await?;
+        self.notification.send_invite_email(&invite.email, "Team Member", &invite_url).await?;
 
         self.audit.log(
             actor_id,

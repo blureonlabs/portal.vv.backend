@@ -316,6 +316,8 @@ impl TripService {
 fn parse_csv_row(
     record: &csv::StringRecord,
 ) -> Result<(NaiveDate, Decimal, Decimal, Decimal, Decimal, Option<String>), String> {
+    use crate::common::validation::validate_amount;
+
     let date_str = record.get(0).unwrap_or("").trim();
     let date = date_str
         .parse::<NaiveDate>()
@@ -327,6 +329,7 @@ fn parse_csv_row(
         .trim()
         .parse()
         .map_err(|_| "Invalid cash_aed value".to_string())?;
+    validate_amount("cash_aed", cash).map_err(|e| e.to_string())?;
 
     let uber_cash: Decimal = record
         .get(2)
@@ -334,6 +337,7 @@ fn parse_csv_row(
         .trim()
         .parse()
         .map_err(|_| "Invalid uber_cash_aed value".to_string())?;
+    validate_amount("uber_cash_aed", uber_cash).map_err(|e| e.to_string())?;
 
     let bolt_cash: Decimal = record
         .get(3)
@@ -341,6 +345,7 @@ fn parse_csv_row(
         .trim()
         .parse()
         .map_err(|_| "Invalid bolt_cash_aed value".to_string())?;
+    validate_amount("bolt_cash_aed", bolt_cash).map_err(|e| e.to_string())?;
 
     let card: Decimal = record
         .get(4)
@@ -348,6 +353,7 @@ fn parse_csv_row(
         .trim()
         .parse()
         .map_err(|_| "Invalid card_aed value".to_string())?;
+    validate_amount("card_aed", card).map_err(|e| e.to_string())?;
 
     let notes = record
         .get(5)

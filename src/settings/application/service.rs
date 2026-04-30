@@ -46,6 +46,26 @@ impl SettingsService {
             return Err(AppError::BadRequest("Value cannot be empty".into()));
         }
 
+        // Validate numeric settings
+        const NUMERIC_KEYS: &[&str] = &[
+            "commission_rate",
+            "trip_cap_aed",
+            "salary_target_high_aed",
+            "salary_fixed_car_high_aed",
+            "salary_target_low_aed",
+            "salary_fixed_car_low_aed",
+            "car_charging_aed",
+            "salik_refund_aed",
+            "cash_shortfall_threshold_aed",
+        ];
+        if NUMERIC_KEYS.contains(&key) {
+            match value.trim().parse::<f64>() {
+                Ok(n) if n >= 0.0 => {}
+                Ok(_) => return Err(AppError::BadRequest(format!("{} must be a non-negative number", key))),
+                Err(_) => return Err(AppError::BadRequest(format!("{} must be a valid number", key))),
+            }
+        }
+
         // Capture old value before updating
         let old_value = self.repo.get(key).await?.map(|s| s.value);
 

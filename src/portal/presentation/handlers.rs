@@ -124,8 +124,15 @@ pub async fn get_earnings(
 
     let from = NaiveDate::from_ymd_opt(year, month, 1)
         .unwrap_or(today);
-    let last_day = NaiveDate::from_ymd_opt(year, month + 1, 1)
-        .unwrap_or_else(|| NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap())
+    // Compute last day of the given month
+    let next_month_first = if month == 12 {
+        NaiveDate::from_ymd_opt(year + 1, 1, 1)
+            .ok_or_else(|| AppError::Internal("Date arithmetic overflow".into()))?
+    } else {
+        NaiveDate::from_ymd_opt(year, month + 1, 1)
+            .ok_or_else(|| AppError::Internal("Date arithmetic overflow".into()))?
+    };
+    let last_day = next_month_first
         .pred_opt()
         .unwrap_or(today);
     let to = last_day.min(today);
@@ -135,7 +142,8 @@ pub async fn get_earnings(
         trip_date: NaiveDate,
         cash_aed: Option<Decimal>,
         card_aed: Option<Decimal>,
-        other_aed: Option<Decimal>,
+        uber_cash_aed: Option<Decimal>,
+        bolt_cash_aed: Option<Decimal>,
     }
 
     let rows = sqlx::query_as::<_, DayRow>(
@@ -144,7 +152,8 @@ pub async fn get_earnings(
             trip_date,
             SUM(cash_aed) AS cash_aed,
             SUM(card_aed) AS card_aed,
-            SUM(other_aed) AS other_aed
+            SUM(uber_cash_aed) AS uber_cash_aed,
+            SUM(bolt_cash_aed) AS bolt_cash_aed
         FROM trips
         WHERE driver_id = $1 AND trip_date BETWEEN $2 AND $3 AND is_deleted = false
         GROUP BY trip_date
@@ -162,7 +171,9 @@ pub async fn get_earnings(
         .map(|r| {
             let cash = r.cash_aed.unwrap_or(Decimal::ZERO);
             let card = r.card_aed.unwrap_or(Decimal::ZERO);
-            let other = r.other_aed.unwrap_or(Decimal::ZERO);
+            let uber = r.uber_cash_aed.unwrap_or(Decimal::ZERO);
+            let bolt = r.bolt_cash_aed.unwrap_or(Decimal::ZERO);
+            let other = uber + bolt;
             DayEarnings {
                 date: r.trip_date,
                 cash_aed: cash,
