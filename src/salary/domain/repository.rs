@@ -9,9 +9,9 @@ use super::entity::{CreateSalary, Salary};
 pub trait SalaryRepository: Send + Sync {
     async fn list(&self, driver_id: Option<Uuid>, month: Option<NaiveDate>) -> Result<Vec<Salary>, AppError>;
     async fn find_by_id(&self, id: Uuid) -> Result<Salary, AppError>;
-    #[allow(dead_code)]
     async fn find_by_driver_month(&self, driver_id: Uuid, period_month: NaiveDate) -> Result<Option<Salary>, AppError>;
     async fn upsert(&self, payload: CreateSalary) -> Result<Salary, AppError>;
+    async fn update_salary(&self, id: Uuid, payload: CreateSalary, edited_fields: Option<serde_json::Value>) -> Result<Salary, AppError>;
     async fn update_slip_url(&self, id: Uuid, slip_url: &str) -> Result<(), AppError>;
     async fn approve(&self, id: Uuid, approved_by: Uuid) -> Result<Salary, AppError>;
     async fn mark_paid(

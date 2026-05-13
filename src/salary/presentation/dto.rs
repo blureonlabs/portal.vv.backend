@@ -6,6 +6,7 @@ use uuid::Uuid;
 use crate::common::types::SalaryType;
 use crate::salary::domain::entity::{Salary, SalaryStatus};
 
+
 #[derive(Debug, Deserialize)]
 pub struct GenerateSalaryBody {
     pub driver_id: Uuid,
@@ -52,6 +53,28 @@ pub struct MarkPaidRequest {
     pub payment_reference: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct EditSalaryBody {
+    pub salary_type: SalaryType,
+    pub total_earnings_aed: Decimal,
+    pub total_cash_received_aed: Decimal,
+    pub total_cash_submit_aed: Option<Decimal>,
+    #[serde(default)]
+    pub cash_not_handover_aed: Decimal,
+    #[serde(default)]
+    pub car_charging_aed: Decimal,
+    pub car_charging_used_aed: Option<Decimal>,
+    #[serde(default)]
+    pub salik_used_aed: Decimal,
+    #[serde(default)]
+    pub salik_refund_aed: Decimal,
+    #[serde(default)]
+    pub rta_fine_aed: Decimal,
+    #[serde(default)]
+    pub card_service_charges_aed: Decimal,
+    pub room_rent_aed: Option<Decimal>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct SalaryResponse {
     pub id: Uuid,
@@ -80,6 +103,8 @@ pub struct SalaryResponse {
     pub final_salary_aed: Decimal,
     pub advance_deduction_aed: Decimal,
     pub net_payable_aed: Decimal,
+    pub carry_forward_balance_aed: Decimal,
+    pub edited_fields: Option<serde_json::Value>,
     pub deductions_json: Option<serde_json::Value>,
     pub slip_url: Option<String>,
     pub generated_by: Uuid,
@@ -123,6 +148,8 @@ impl From<Salary> for SalaryResponse {
             final_salary_aed: s.final_salary_aed,
             advance_deduction_aed: s.advance_deduction_aed,
             net_payable_aed: s.net_payable_aed,
+            carry_forward_balance_aed: s.carry_forward_balance_aed,
+            edited_fields: s.edited_fields,
             deductions_json: s.deductions_json,
             slip_url: s.slip_url,
             generated_by: s.generated_by,

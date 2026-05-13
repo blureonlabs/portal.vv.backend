@@ -45,6 +45,8 @@ struct SalaryRow {
     final_salary_aed: Decimal,
     advance_deduction_aed: Decimal,
     net_payable_aed: Decimal,
+    carry_forward_balance_aed: Decimal,
+    edited_fields: Option<serde_json::Value>,
     deductions_json: Option<serde_json::Value>,
     slip_url: Option<String>,
     generated_by: Uuid,
@@ -87,6 +89,8 @@ fn row_to_salary(r: SalaryRow) -> Salary {
         final_salary_aed: r.final_salary_aed,
         advance_deduction_aed: r.advance_deduction_aed,
         net_payable_aed: r.net_payable_aed,
+        carry_forward_balance_aed: r.carry_forward_balance_aed,
+        edited_fields: r.edited_fields,
         deductions_json: r.deductions_json,
         slip_url: r.slip_url,
         generated_by: r.generated_by,
@@ -112,6 +116,7 @@ const SELECT_FIELDS: &str = r#"
     s.rta_fine_aed, s.card_service_charges_aed, s.room_rent_aed,
     s.target_amount_aed, s.fixed_car_charging_aed, s.commission_aed,
     s.base_amount_aed, s.final_salary_aed, s.advance_deduction_aed, s.net_payable_aed,
+    s.carry_forward_balance_aed, s.edited_fields,
     s.deductions_json, s.slip_url,
     s.generated_by, pg.full_name AS generated_by_name, s.generated_at,
     s.status, s.approved_by, s.approved_at,
@@ -185,9 +190,10 @@ impl SalaryRepository for PgSalaryRepository {
                 rta_fine_aed, card_service_charges_aed, room_rent_aed,
                 target_amount_aed, fixed_car_charging_aed, commission_aed,
                 base_amount_aed, final_salary_aed, advance_deduction_aed, net_payable_aed,
+                carry_forward_balance_aed,
                 deductions_json, generated_by
             )
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
             ON CONFLICT (driver_id, period_month) DO UPDATE SET
                 salary_type_snapshot      = EXCLUDED.salary_type_snapshot,
                 total_earnings_aed        = EXCLUDED.total_earnings_aed,
@@ -211,6 +217,7 @@ impl SalaryRepository for PgSalaryRepository {
                 final_salary_aed          = EXCLUDED.final_salary_aed,
                 advance_deduction_aed     = EXCLUDED.advance_deduction_aed,
                 net_payable_aed           = EXCLUDED.net_payable_aed,
+                carry_forward_balance_aed = EXCLUDED.carry_forward_balance_aed,
                 deductions_json           = EXCLUDED.deductions_json,
                 generated_by              = EXCLUDED.generated_by,
                 generated_at              = NOW()
@@ -224,6 +231,7 @@ impl SalaryRepository for PgSalaryRepository {
                 rta_fine_aed, card_service_charges_aed, room_rent_aed,
                 target_amount_aed, fixed_car_charging_aed, commission_aed,
                 base_amount_aed, final_salary_aed, advance_deduction_aed, net_payable_aed,
+                carry_forward_balance_aed, edited_fields,
                 deductions_json, slip_url,
                 generated_by,
                 (SELECT full_name FROM profiles WHERE id = salaries.generated_by) AS generated_by_name,
@@ -256,6 +264,7 @@ impl SalaryRepository for PgSalaryRepository {
         .bind(p.final_salary_aed)
         .bind(p.advance_deduction_aed)
         .bind(p.net_payable_aed)
+        .bind(p.carry_forward_balance_aed)
         .bind(p.deductions_json)
         .bind(p.generated_by)
         .fetch_one(&self.pool)
@@ -290,6 +299,7 @@ impl SalaryRepository for PgSalaryRepository {
                rta_fine_aed, card_service_charges_aed, room_rent_aed, \
                target_amount_aed, fixed_car_charging_aed, commission_aed, \
                base_amount_aed, final_salary_aed, advance_deduction_aed, net_payable_aed, \
+               carry_forward_balance_aed, edited_fields, \
                deductions_json, slip_url, generated_by, \
                (SELECT full_name FROM profiles WHERE id = generated_by) AS generated_by_name, \
                generated_at, status, approved_by, approved_at, \
@@ -325,6 +335,7 @@ impl SalaryRepository for PgSalaryRepository {
                rta_fine_aed, card_service_charges_aed, room_rent_aed, \
                target_amount_aed, fixed_car_charging_aed, commission_aed, \
                base_amount_aed, final_salary_aed, advance_deduction_aed, net_payable_aed, \
+               carry_forward_balance_aed, edited_fields, \
                deductions_json, slip_url, generated_by, \
                (SELECT full_name FROM profiles WHERE id = generated_by) AS generated_by_name, \
                generated_at, status, approved_by, approved_at, \
@@ -337,6 +348,87 @@ impl SalaryRepository for PgSalaryRepository {
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| AppError::BadRequest("Salary must be approved before marking as paid".into()))?;
+
+        Ok(row_to_salary(row))
+    }
+
+    async fn update_salary(&self, id: Uuid, p: CreateSalary, edited_fields: Option<serde_json::Value>) -> Result<Salary, AppError> {
+        let row = sqlx::query_as::<_, SalaryRow>(
+            "UPDATE salaries SET \
+               salary_type_snapshot = $2, \
+               total_earnings_aed = $3, \
+               total_cash_received_aed = $4, \
+               total_cash_submit_aed = $5, \
+               cash_not_handover_aed = $6, \
+               cash_diff_aed = $7, \
+               car_charging_aed = $8, \
+               car_charging_used_aed = $9, \
+               car_charging_diff_aed = $10, \
+               salik_used_aed = $11, \
+               salik_refund_aed = $12, \
+               salik_aed = $13, \
+               rta_fine_aed = $14, \
+               card_service_charges_aed = $15, \
+               room_rent_aed = $16, \
+               target_amount_aed = $17, \
+               fixed_car_charging_aed = $18, \
+               commission_aed = $19, \
+               base_amount_aed = $20, \
+               final_salary_aed = $21, \
+               advance_deduction_aed = $22, \
+               net_payable_aed = $23, \
+               carry_forward_balance_aed = $24, \
+               deductions_json = $25, \
+               edited_fields = $26, \
+               generated_by = $27, \
+               generated_at = NOW() \
+             WHERE id = $1 AND status = 'draft' \
+             RETURNING id, driver_id, \
+               (SELECT full_name FROM profiles WHERE id = (SELECT profile_id FROM drivers WHERE id = driver_id)) AS driver_name, \
+               period_month, salary_type_snapshot, \
+               total_earnings_aed, total_cash_received_aed, total_cash_submit_aed, \
+               cash_not_handover_aed, cash_diff_aed, \
+               car_charging_aed, car_charging_used_aed, car_charging_diff_aed, \
+               salik_used_aed, salik_refund_aed, salik_aed, \
+               rta_fine_aed, card_service_charges_aed, room_rent_aed, \
+               target_amount_aed, fixed_car_charging_aed, commission_aed, \
+               base_amount_aed, final_salary_aed, advance_deduction_aed, net_payable_aed, \
+               carry_forward_balance_aed, edited_fields, \
+               deductions_json, slip_url, generated_by, \
+               (SELECT full_name FROM profiles WHERE id = generated_by) AS generated_by_name, \
+               generated_at, status, approved_by, approved_at, \
+               payment_date, payment_mode, payment_reference, paid_at",
+        )
+        .bind(id)
+        .bind(p.salary_type_snapshot as SalaryType)
+        .bind(p.total_earnings_aed)
+        .bind(p.total_cash_received_aed)
+        .bind(p.total_cash_submit_aed)
+        .bind(p.cash_not_handover_aed)
+        .bind(p.cash_diff_aed)
+        .bind(p.car_charging_aed)
+        .bind(p.car_charging_used_aed)
+        .bind(p.car_charging_diff_aed)
+        .bind(p.salik_used_aed)
+        .bind(p.salik_refund_aed)
+        .bind(p.salik_aed)
+        .bind(p.rta_fine_aed)
+        .bind(p.card_service_charges_aed)
+        .bind(p.room_rent_aed)
+        .bind(p.target_amount_aed)
+        .bind(p.fixed_car_charging_aed)
+        .bind(p.commission_aed)
+        .bind(p.base_amount_aed)
+        .bind(p.final_salary_aed)
+        .bind(p.advance_deduction_aed)
+        .bind(p.net_payable_aed)
+        .bind(p.carry_forward_balance_aed)
+        .bind(p.deductions_json)
+        .bind(edited_fields)
+        .bind(p.generated_by)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or_else(|| AppError::BadRequest("Salary is not in draft state or not found".into()))?;
 
         Ok(row_to_salary(row))
     }

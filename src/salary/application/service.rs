@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::FromPrimitive;
 use uuid::Uuid;
@@ -10,9 +10,10 @@ use tracing;
 use crate::audit::application::service::AuditService;
 use crate::common::{error::AppError, ports::DeductionPort, types::{Role, SalaryType}};
 use crate::salary::domain::{
-    entity::{CreateSalary, Salary},
+    entity::{CreateSalary, Salary, SalaryStatus},
     repository::SalaryRepository,
 };
+use crate::salary::infrastructure::pdf::SalaryPdfService;
 use crate::settings::domain::repository::SettingsRepository;
 
 pub struct SalaryService {
@@ -20,6 +21,7 @@ pub struct SalaryService {
     settings: Arc<dyn SettingsRepository>,
     deduction_port: Arc<dyn DeductionPort>,
     audit: Arc<AuditService>,
+    pdf: Arc<SalaryPdfService>,
 }
 
 impl SalaryService {
@@ -28,8 +30,9 @@ impl SalaryService {
         settings: Arc<dyn SettingsRepository>,
         deduction_port: Arc<dyn DeductionPort>,
         audit: Arc<AuditService>,
+        pdf: Arc<SalaryPdfService>,
     ) -> Self {
-        Self { repo, settings, deduction_port, audit }
+        Self { repo, settings, deduction_port, audit, pdf }
     }
 
     pub async fn list(
@@ -85,6 +88,15 @@ impl SalaryService {
             Some(serde_json::json!({ "advance_ids": advance_ids }))
         };
 
+        // 2b. Carry-forward from previous month's negative balance
+        let carry_forward_balance_aed = {
+            let prev = prev_month(req.period_month);
+            match self.repo.find_by_driver_month(req.driver_id, prev).await? {
+                Some(prev_salary) if prev_salary.net_payable_aed < Decimal::ZERO => prev_salary.net_payable_aed.abs(),
+                _ => Decimal::ZERO,
+            }
+        };
+
         // 3. Derived totals from inputs
         let salik_aed = req.salik_used_aed - req.salik_refund_aed;
 
@@ -127,7 +139,7 @@ impl SalaryService {
                 }
             };
 
-        let net_payable_aed = final_salary_aed - advance_deduction_aed;
+        let net_payable_aed = final_salary_aed - advance_deduction_aed - carry_forward_balance_aed;
 
         let payload = CreateSalary {
             driver_id:               req.driver_id,
@@ -154,6 +166,7 @@ impl SalaryService {
             final_salary_aed,
             advance_deduction_aed,
             net_payable_aed,
+            carry_forward_balance_aed,
             deductions_json,
             generated_by:            req.generated_by,
         };
@@ -222,6 +235,173 @@ impl SalaryService {
             }))).await?;
         Ok(salary)
     }
+
+    pub async fn edit_salary(
+        &self,
+        actor_id: Uuid,
+        actor_role: &Role,
+        salary_id: Uuid,
+        fields: EditSalaryFields,
+    ) -> Result<Salary, AppError> {
+        // 1. Fetch existing salary, guard draft
+        let existing = self.repo.find_by_id(salary_id).await?;
+        if existing.status != SalaryStatus::Draft {
+            return Err(AppError::BadRequest("Only draft salaries can be edited".into()));
+        }
+
+        // 2. Load settings (same as generate)
+        let settings = self.settings.list().await?;
+        let get_setting = |key: &str, default: f64| -> Decimal {
+            settings.iter()
+                .find(|s| s.key == key)
+                .and_then(|s| s.value.parse::<f64>().ok())
+                .and_then(Decimal::from_f64)
+                .unwrap_or_else(|| Decimal::from_f64(default).unwrap())
+        };
+
+        let global_commission_rate = get_setting("commission_rate", 0.75);
+        let target_high_aed = get_setting("salary_target_high_aed", 0.0);
+        let target_low_aed = get_setting("salary_target_low_aed", 0.0);
+        let fixed_car_low_aed = get_setting("salary_fixed_car_low_aed", 0.0);
+
+        let commission_rate = fields.driver_commission_rate.unwrap_or(global_commission_rate);
+        let effective_room_rent = match fields.room_rent_aed {
+            Some(v) if v > Decimal::ZERO => v,
+            _ => fields.driver_room_rent_aed,
+        };
+
+        // 3. Recompute advance deductions and carry-forward
+        let advance_deduction_aed = self.deduction_port
+            .get_advance_deductions(existing.driver_id, existing.period_month)
+            .await?;
+        let advance_ids = self.deduction_port
+            .get_advance_ids_for_period(existing.driver_id, existing.period_month)
+            .await?;
+        let deductions_json = if advance_ids.is_empty() {
+            None
+        } else {
+            Some(serde_json::json!({ "advance_ids": advance_ids }))
+        };
+
+        let carry_forward_balance_aed = {
+            let prev = prev_month(existing.period_month);
+            match self.repo.find_by_driver_month(existing.driver_id, prev).await? {
+                Some(prev_salary) if prev_salary.net_payable_aed < Decimal::ZERO => prev_salary.net_payable_aed.abs(),
+                _ => Decimal::ZERO,
+            }
+        };
+
+        // 4. Derived totals
+        let salik_aed = fields.salik_used_aed - fields.salik_refund_aed;
+        let car_charging_diff_aed = fields.car_charging_used_aed.map(|used| fields.car_charging_aed - used);
+        let cash_diff_aed = fields.total_cash_submit_aed.map(|sub| fields.total_cash_received_aed - sub);
+
+        // 5. Formula (same as generate)
+        let (base_amount_aed, commission_aed, target_amount_aed, fixed_car_charging_aed, final_salary_aed) =
+            match fields.salary_type {
+                SalaryType::Commission => {
+                    let commission = fields.total_earnings_aed * commission_rate;
+                    let final_sal = commission
+                        - salik_aed
+                        - fields.rta_fine_aed
+                        - fields.card_service_charges_aed
+                        - effective_room_rent;
+                    (commission, Some(commission), None, None, final_sal)
+                }
+                SalaryType::TargetHigh => {
+                    let base = target_high_aed + car_charging_diff_aed.unwrap_or(Decimal::ZERO);
+                    let final_sal = base
+                        - salik_aed
+                        - fields.rta_fine_aed
+                        - fields.card_service_charges_aed
+                        - effective_room_rent
+                        - fields.cash_not_handover_aed;
+                    (base, None, Some(target_high_aed), None, final_sal)
+                }
+                SalaryType::TargetLow => {
+                    let base = target_low_aed + car_charging_diff_aed.unwrap_or(Decimal::ZERO);
+                    let final_sal = base
+                        - salik_aed
+                        - fields.rta_fine_aed
+                        - fields.card_service_charges_aed
+                        - effective_room_rent
+                        - fields.cash_not_handover_aed;
+                    (base, None, Some(target_low_aed), Some(fixed_car_low_aed), final_sal)
+                }
+            };
+
+        let net_payable_aed = final_salary_aed - advance_deduction_aed - carry_forward_balance_aed;
+
+        // 6. Build diff JSON
+        let mut diff = serde_json::Map::new();
+        macro_rules! diff_field {
+            ($name:expr, $old:expr, $new:expr) => {
+                if $old != $new {
+                    diff.insert($name.to_string(), serde_json::json!({ "old": $old, "new": $new }));
+                }
+            };
+        }
+        diff_field!("salary_type", format!("{:?}", existing.salary_type_snapshot), format!("{:?}", fields.salary_type));
+        diff_field!("total_earnings_aed", existing.total_earnings_aed, fields.total_earnings_aed);
+        diff_field!("total_cash_received_aed", existing.total_cash_received_aed, fields.total_cash_received_aed);
+        diff_field!("cash_not_handover_aed", existing.cash_not_handover_aed, fields.cash_not_handover_aed);
+        diff_field!("car_charging_aed", existing.car_charging_aed, fields.car_charging_aed);
+        diff_field!("salik_used_aed", existing.salik_used_aed, fields.salik_used_aed);
+        diff_field!("salik_refund_aed", existing.salik_refund_aed, fields.salik_refund_aed);
+        diff_field!("rta_fine_aed", existing.rta_fine_aed, fields.rta_fine_aed);
+        diff_field!("card_service_charges_aed", existing.card_service_charges_aed, fields.card_service_charges_aed);
+        diff_field!("net_payable_aed", existing.net_payable_aed, net_payable_aed);
+        let diff_json = if diff.is_empty() { None } else { Some(serde_json::Value::Object(diff.clone())) };
+
+        // 7. Build payload
+        let payload = CreateSalary {
+            driver_id: existing.driver_id,
+            period_month: existing.period_month,
+            salary_type_snapshot: fields.salary_type,
+            total_earnings_aed: fields.total_earnings_aed,
+            total_cash_received_aed: fields.total_cash_received_aed,
+            total_cash_submit_aed: fields.total_cash_submit_aed,
+            cash_not_handover_aed: fields.cash_not_handover_aed,
+            cash_diff_aed,
+            car_charging_aed: fields.car_charging_aed,
+            car_charging_used_aed: fields.car_charging_used_aed,
+            car_charging_diff_aed,
+            salik_used_aed: fields.salik_used_aed,
+            salik_refund_aed: fields.salik_refund_aed,
+            salik_aed,
+            rta_fine_aed: fields.rta_fine_aed,
+            card_service_charges_aed: fields.card_service_charges_aed,
+            room_rent_aed: if effective_room_rent > Decimal::ZERO { Some(effective_room_rent) } else { None },
+            target_amount_aed,
+            fixed_car_charging_aed,
+            commission_aed,
+            base_amount_aed,
+            final_salary_aed,
+            advance_deduction_aed,
+            net_payable_aed,
+            carry_forward_balance_aed,
+            deductions_json,
+            generated_by: actor_id,
+        };
+
+        let salary = self.repo.update_salary(salary_id, payload, diff_json).await?;
+
+        // 8. Audit log
+        self.audit.log(actor_id, actor_role, "salary", Some(salary_id), "salary.edited",
+            Some(serde_json::json!({
+                "salary_id": salary_id,
+                "diff": serde_json::Value::Object(diff),
+            }))).await?;
+
+        Ok(salary)
+    }
+
+    pub async fn generate_slip(&self, salary_id: Uuid) -> Result<String, AppError> {
+        let salary = self.repo.find_by_id(salary_id).await?;
+        let url = self.pdf.generate_and_upload(&salary).await?;
+        self.repo.update_slip_url(salary_id, &url).await?;
+        Ok(url)
+    }
 }
 
 pub struct GenerateRequest {
@@ -245,4 +425,29 @@ pub struct GenerateRequest {
     /// Driver's per-record commission rate (None = use global setting).
     pub driver_commission_rate:   Option<Decimal>,
     pub generated_by:             Uuid,
+}
+
+pub struct EditSalaryFields {
+    pub salary_type:              SalaryType,
+    pub total_earnings_aed:       Decimal,
+    pub total_cash_received_aed:  Decimal,
+    pub total_cash_submit_aed:    Option<Decimal>,
+    pub cash_not_handover_aed:    Decimal,
+    pub car_charging_aed:         Decimal,
+    pub car_charging_used_aed:    Option<Decimal>,
+    pub salik_used_aed:           Decimal,
+    pub salik_refund_aed:         Decimal,
+    pub rta_fine_aed:             Decimal,
+    pub card_service_charges_aed: Decimal,
+    pub room_rent_aed:            Option<Decimal>,
+    pub driver_room_rent_aed:     Decimal,
+    pub driver_commission_rate:   Option<Decimal>,
+}
+
+fn prev_month(d: NaiveDate) -> NaiveDate {
+    if d.month() == 1 {
+        NaiveDate::from_ymd_opt(d.year() - 1, 12, 1).unwrap()
+    } else {
+        NaiveDate::from_ymd_opt(d.year(), d.month() - 1, 1).unwrap()
+    }
 }

@@ -10,8 +10,8 @@ use crate::common::{
     types::{CurrentUser, Role},
 };
 use crate::driver::application::service::DriverService;
-use crate::salary::application::service::{GenerateRequest, SalaryService};
-use crate::salary::presentation::dto::{FetchEarningsQuery, GenerateSalaryBody, ListSalaryQuery, MarkPaidRequest, SalaryResponse};
+use crate::salary::application::service::{EditSalaryFields, GenerateRequest, SalaryService};
+use crate::salary::presentation::dto::{EditSalaryBody, FetchEarningsQuery, GenerateSalaryBody, ListSalaryQuery, MarkPaidRequest, SalaryResponse};
 use crate::trip::application::service::TripService;
 
 fn parse_month(s: &str) -> Result<NaiveDate, AppError> {
@@ -134,4 +134,69 @@ pub async fn mark_salary_paid(
         body.payment_reference.clone(),
     ).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(SalaryResponse::from(salary))))
+}
+
+pub async fn edit_salary(
+    user: CurrentUser,
+    svc: web::Data<Arc<SalaryService>>,
+    driver_svc: web::Data<Arc<DriverService>>,
+    id: web::Path<Uuid>,
+    body: web::Json<EditSalaryBody>,
+) -> Result<HttpResponse, AppError> {
+    use crate::common::validation::validate_amount;
+    require_admin(&user)?;
+
+    // Validate monetary amounts
+    validate_amount("total_earnings_aed", body.total_earnings_aed)?;
+    validate_amount("total_cash_received_aed", body.total_cash_received_aed)?;
+    if let Some(v) = body.total_cash_submit_aed { validate_amount("total_cash_submit_aed", v)?; }
+    validate_amount("cash_not_handover_aed", body.cash_not_handover_aed)?;
+    validate_amount("car_charging_aed", body.car_charging_aed)?;
+    if let Some(v) = body.car_charging_used_aed { validate_amount("car_charging_used_aed", v)?; }
+    validate_amount("salik_used_aed", body.salik_used_aed)?;
+    validate_amount("salik_refund_aed", body.salik_refund_aed)?;
+    validate_amount("rta_fine_aed", body.rta_fine_aed)?;
+    validate_amount("card_service_charges_aed", body.card_service_charges_aed)?;
+    if let Some(v) = body.room_rent_aed { validate_amount("room_rent_aed", v)?; }
+
+    // Fetch the existing salary to get driver_id, then fetch driver for defaults
+    let existing = svc.get(*id).await?;
+    let driver = driver_svc.get(existing.driver_id).await?;
+
+    let fields = EditSalaryFields {
+        salary_type: body.salary_type.clone(),
+        total_earnings_aed: body.total_earnings_aed,
+        total_cash_received_aed: body.total_cash_received_aed,
+        total_cash_submit_aed: body.total_cash_submit_aed,
+        cash_not_handover_aed: body.cash_not_handover_aed,
+        car_charging_aed: body.car_charging_aed,
+        car_charging_used_aed: body.car_charging_used_aed,
+        salik_used_aed: body.salik_used_aed,
+        salik_refund_aed: body.salik_refund_aed,
+        rta_fine_aed: body.rta_fine_aed,
+        card_service_charges_aed: body.card_service_charges_aed,
+        room_rent_aed: body.room_rent_aed,
+        driver_room_rent_aed: driver.room_rent_aed,
+        driver_commission_rate: driver.commission_rate,
+    };
+
+    let salary = svc.edit_salary(user.id, &user.role, *id, fields).await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(SalaryResponse::from(salary))))
+}
+
+pub async fn download_salary_slip(
+    user: CurrentUser,
+    svc: web::Data<Arc<SalaryService>>,
+    id: web::Path<Uuid>,
+) -> Result<HttpResponse, AppError> {
+    require_admin(&user)?;
+    let salary = svc.get(*id).await?;
+
+    let slip_url = if let Some(url) = salary.slip_url {
+        url
+    } else {
+        svc.generate_slip(*id).await?
+    };
+
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(serde_json::json!({ "slip_url": slip_url }))))
 }

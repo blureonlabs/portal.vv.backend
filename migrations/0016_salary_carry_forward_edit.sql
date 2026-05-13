@@ -1,0 +1,2 @@
+ALTER TABLE salaries ADD COLUMN IF NOT EXISTS carry_forward_balance_aed NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE salaries ADD COLUMN IF NOT EXISTS edited_fields JSONB;

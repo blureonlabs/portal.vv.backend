@@ -68,6 +68,7 @@ use advance::{
 };
 use salary::{
     infrastructure::postgres::PgSalaryRepository,
+    infrastructure::pdf::SalaryPdfService,
     application::service::SalaryService,
 };
 use common::ports::DeductionPort;
@@ -199,11 +200,13 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
 
     let salary_repo = Arc::new(PgSalaryRepository::new(db.pg_pool().clone()));
     let deduction_port: Arc<dyn DeductionPort> = Arc::clone(&advance_repo) as Arc<dyn DeductionPort>;
+    let salary_pdf_svc = Arc::new(SalaryPdfService::new(&config));
     let salary_svc = Arc::new(SalaryService::new(
         salary_repo,
         Arc::clone(&settings_repo),
         deduction_port,
         Arc::clone(&audit_svc),
+        salary_pdf_svc,
     ));
 
     let owner_repo: Arc<dyn owner::domain::repository::OwnerRepository> =
