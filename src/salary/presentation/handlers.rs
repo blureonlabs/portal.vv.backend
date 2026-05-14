@@ -192,10 +192,9 @@ pub async fn download_salary_slip(
     require_admin(&user)?;
     let salary = svc.get(*id).await?;
 
-    let slip_url = if let Some(url) = salary.slip_url {
-        url
-    } else {
-        svc.generate_slip(*id).await?
+    let slip_url = match salary.slip_url {
+        Some(ref url) if url.starts_with("http") => url.clone(),
+        _ => svc.generate_slip(*id).await?,
     };
 
     Ok(HttpResponse::Ok().json(ApiResponse::ok(serde_json::json!({ "slip_url": slip_url }))))
