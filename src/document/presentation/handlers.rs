@@ -3,6 +3,7 @@ use std::sync::Arc;
 use actix_web::{web, HttpResponse};
 use uuid::Uuid;
 
+use crate::auth::presentation::handlers::require_role;
 use crate::common::{error::AppError, response::ApiResponse, types::{CurrentUser, Role}};
 use crate::document::application::service::DocumentService;
 use crate::document::presentation::dto::{CreateDocumentRequest, DocumentResponse, ListDocumentsQuery};
@@ -43,7 +44,13 @@ pub async fn create_document(
     svc: web::Data<Arc<DocumentService>>,
     body: web::Json<CreateDocumentRequest>,
 ) -> Result<HttpResponse, AppError> {
+    require_role(&user, &[Role::SuperAdmin, Role::Accountant, Role::Hr])?;
     let body = body.into_inner();
+
+    if body.file_url.is_empty() || body.file_url.len() > 2000 {
+        return Err(AppError::BadRequest("Invalid file URL".into()));
+    }
+
     let doc = svc
         .upload(
             body.entity_type,

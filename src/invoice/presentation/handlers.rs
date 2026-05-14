@@ -76,6 +76,19 @@ pub async fn generate_invoice(
     use crate::database::domain::DatabasePool;
     let body = body.into_inner();
     let driver_id = body.driver_id;
+
+    if body.line_items.is_empty() {
+        return Err(AppError::BadRequest("line_items must not be empty".into()));
+    }
+    if body.line_items.len() > 100 {
+        return Err(AppError::BadRequest("line_items must have at most 100 items".into()));
+    }
+    for li in &body.line_items {
+        if li.description.len() > 500 {
+            return Err(AppError::BadRequest("line item description must be 500 characters or fewer".into()));
+        }
+    }
+
     let line_items: Vec<LineItem> = body
         .line_items
         .into_iter()

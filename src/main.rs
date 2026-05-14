@@ -246,8 +246,8 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let document_svc_data = web::Data::new(Arc::clone(&document_svc));
 
     let governor_conf = GovernorConfigBuilder::default()
-        .seconds_per_request(30)
-        .burst_size(60)
+        .seconds_per_request(2)
+        .burst_size(30)
         .finish()
         .unwrap();
 
