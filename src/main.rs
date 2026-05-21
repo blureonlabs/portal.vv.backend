@@ -186,8 +186,10 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     info!("Server bound successfully to {}", addr);
 
     // Document expiry checker — runs every 24 hours
+    // Skip the first tick (fires at t=0) to avoid email blast on every deploy
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(86400));
+        interval.tick().await; // consume the immediate first tick
         loop {
             interval.tick().await;
             notification::application::expiry_checker::check_and_notify_expiring_documents(
