@@ -49,7 +49,8 @@ pub fn register(d: &InvoiceDeps, cfg: &mut web::ServiceConfig) {
 }
 
 async fn fetch_setting(pool: &PgPool, key: &str) -> Option<String> {
-    sqlx::query_scalar!("SELECT value FROM settings WHERE key = $1", key)
+    sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = $1")
+        .bind(key)
         .fetch_optional(pool)
         .await
         .ok()
