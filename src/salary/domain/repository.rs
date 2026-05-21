@@ -20,5 +20,6 @@ pub trait SalaryRepository: Send + Sync {
         payment_date: NaiveDate,
         payment_mode: String,
         payment_reference: Option<String>,
+        notes: Option<String>,
     ) -> Result<Salary, AppError>;
 }

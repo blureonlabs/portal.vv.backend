@@ -28,6 +28,8 @@ pub struct DashboardKpis {
     pub pending_leave: i64,
     pub total_expenses_mtd: Decimal,
     pub net_profit: Decimal,
+    pub total_advances_mtd: Decimal,
+    pub outstanding_advances: Decimal,
     pub insurance_expiring_soon: Vec<InsuranceAlert>,
     pub top_drivers: Vec<DriverPerfRow>,
     pub bottom_drivers: Vec<DriverPerfRow>,

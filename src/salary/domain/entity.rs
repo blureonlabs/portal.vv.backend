@@ -57,7 +57,9 @@ pub struct Salary {
     pub payment_date: Option<NaiveDate>,
     pub payment_mode: Option<String>,
     pub payment_reference: Option<String>,
+    pub payment_notes: Option<String>,
     pub paid_at: Option<DateTime<Utc>>,
+    pub incentives_aed: Decimal,
 }
 
 pub struct CreateSalary {
@@ -86,7 +88,9 @@ pub struct CreateSalary {
     pub advance_deduction_aed: Decimal,
     pub net_payable_aed: Decimal,
     pub carry_forward_balance_aed: Decimal,
+    #[allow(dead_code)]
     pub adjusted_from_id: Option<Uuid>,
     pub deductions_json: Option<Value>,
     pub generated_by: Uuid,
+    pub incentives_aed: Decimal,
 }

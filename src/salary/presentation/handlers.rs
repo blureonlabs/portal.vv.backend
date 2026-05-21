@@ -48,6 +48,7 @@ pub async fn generate_salary(
     validate_amount("rta_fine_aed", body.rta_fine_aed)?;
     validate_amount("card_service_charges_aed", body.card_service_charges_aed)?;
     if let Some(v) = body.room_rent_aed { validate_amount("room_rent_aed", v)?; }
+    validate_amount("incentives_aed", body.incentives_aed)?;
 
     // Fetch the driver to get per-driver room_rent and commission_rate defaults.
     let driver = driver_svc.get(body.driver_id).await?;
@@ -70,6 +71,7 @@ pub async fn generate_salary(
         driver_room_rent_aed:     driver.room_rent_aed,
         driver_commission_rate:   driver.commission_rate,
         generated_by:             user.id,
+        incentives_aed:           body.incentives_aed,
     };
     let salary = svc.generate(&user.role, req).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(SalaryResponse::from(salary))))
@@ -132,6 +134,7 @@ pub async fn mark_salary_paid(
         body.payment_date,
         body.payment_mode.clone(),
         body.payment_reference.clone(),
+        body.notes.clone(),
     ).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(SalaryResponse::from(salary))))
 }
@@ -158,6 +161,7 @@ pub async fn edit_salary(
     validate_amount("rta_fine_aed", body.rta_fine_aed)?;
     validate_amount("card_service_charges_aed", body.card_service_charges_aed)?;
     if let Some(v) = body.room_rent_aed { validate_amount("room_rent_aed", v)?; }
+    validate_amount("incentives_aed", body.incentives_aed)?;
 
     // Fetch the existing salary to get driver_id, then fetch driver for defaults
     let existing = svc.get(*id).await?;
@@ -178,6 +182,7 @@ pub async fn edit_salary(
         room_rent_aed: body.room_rent_aed,
         driver_room_rent_aed: driver.room_rent_aed,
         driver_commission_rate: driver.commission_rate,
+        incentives_aed: body.incentives_aed,
     };
 
     let salary = svc.edit_salary(user.id, &user.role, *id, fields).await?;

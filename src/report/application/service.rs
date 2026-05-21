@@ -299,6 +299,24 @@ impl ReportService {
             ).bind(month_start).bind(today).fetch_one(pool),
         )?;
 
+        // Advance KPIs
+        #[derive(sqlx::FromRow)]
+        struct AdvKpiRow {
+            total_advances_mtd: Option<Decimal>,
+            outstanding_advances: Option<Decimal>,
+        }
+
+        let adv_kpi = sqlx::query_as::<_, AdvKpiRow>(
+            "SELECT \
+               COALESCE(SUM(amount_aed), 0) AS total_advances_mtd, \
+               COALESCE(SUM(CASE WHEN status = 'approved' THEN amount_aed ELSE 0 END), 0) AS outstanding_advances \
+             FROM advances WHERE created_at::date BETWEEN $1 AND $2"
+        )
+        .bind(month_start)
+        .bind(today)
+        .fetch_one(pool)
+        .await?;
+
         // Batch 2 (3 queries)
         let (ins_rows, top_rows, bottom_rows) = tokio::try_join!(
             sqlx::query_as::<_, InsRow>(
@@ -487,6 +505,8 @@ impl ReportService {
             pending_leave: counts.pending_leave.unwrap_or(0),
             total_expenses_mtd,
             net_profit: revenue_mtd - total_expenses_mtd,
+            total_advances_mtd: adv_kpi.total_advances_mtd.unwrap_or(Decimal::ZERO),
+            outstanding_advances: adv_kpi.outstanding_advances.unwrap_or(Decimal::ZERO),
             insurance_expiring_soon,
             top_drivers,
             bottom_drivers,

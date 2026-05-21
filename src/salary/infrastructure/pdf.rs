@@ -109,6 +109,9 @@ impl SalaryPdfService {
         if let Some(target) = salary.target_amount_aed {
             earn_row(&layer, "Target Amount", target, &mut y, &font);
         }
+        if salary.incentives_aed > Decimal::ZERO {
+            earn_row(&layer, "Incentives", salary.incentives_aed, &mut y, &font);
+        }
         earn_row(&layer, "Base Amount", salary.base_amount_aed, &mut y, &font);
         y -= 6.0;
 
