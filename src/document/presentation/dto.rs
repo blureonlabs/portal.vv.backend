@@ -49,6 +49,10 @@ pub struct CreateDocumentRequest {
     pub expiry_date: Option<NaiveDate>,
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub notes: Option<String>,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub document_number: Option<String>,
+    #[serde(default, deserialize_with = "empty_string_as_none_date")]
+    pub issue_date: Option<NaiveDate>,
 }
 
 // ── Response ───────────────────────────────────────────────────────────────────
@@ -64,6 +68,8 @@ pub struct DocumentResponse {
     pub expiry_date: Option<NaiveDate>,
     pub uploaded_by: Uuid,
     pub notes: Option<String>,
+    pub document_number: Option<String>,
+    pub issue_date: Option<NaiveDate>,
     pub created_at: String,
 }
 
@@ -88,6 +94,8 @@ impl From<Document> for DocumentResponse {
             expiry_date: d.expiry_date,
             uploaded_by: d.uploaded_by,
             notes: d.notes,
+            document_number: d.document_number,
+            issue_date: d.issue_date,
             created_at: d.created_at.to_rfc3339(),
         }
     }

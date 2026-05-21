@@ -15,6 +15,7 @@ pub struct CreateDriverRequest {
     pub room_rent_aed: Decimal,
     pub commission_rate: Option<Decimal>,
     pub joining_date: Option<NaiveDate>,
+    pub license_number: Option<String>,
 }
 
 /// Create driver with a new auth account in one step (super_admin use)
@@ -31,6 +32,7 @@ pub struct CreateDriverWithAccountRequest {
     pub room_rent_aed: Decimal,
     pub commission_rate: Option<Decimal>,
     pub joining_date: Option<NaiveDate>,
+    pub license_number: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -41,6 +43,7 @@ pub struct UpdateDriverRequest {
     pub room_rent_aed: Decimal,
     pub commission_rate: Option<Decimal>,
     pub joining_date: Option<NaiveDate>,
+    pub license_number: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -56,6 +59,7 @@ pub struct DriverResponse {
     pub room_rent_aed: Decimal,
     pub commission_rate: Option<Decimal>,
     pub joining_date: Option<String>,
+    pub license_number: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -73,6 +77,7 @@ impl From<Driver> for DriverResponse {
             room_rent_aed: d.room_rent_aed,
             commission_rate: d.commission_rate,
             joining_date: d.joining_date.map(|d| d.to_string()),
+            license_number: d.license_number,
             created_at: d.created_at,
         }
     }

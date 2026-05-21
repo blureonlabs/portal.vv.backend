@@ -18,6 +18,7 @@ pub struct Driver {
     pub room_rent_aed: Decimal,
     pub commission_rate: Option<Decimal>,
     pub joining_date: Option<NaiveDate>,
+    pub license_number: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 

@@ -28,7 +28,7 @@ impl DriverRepository for PgDriverRepository {
                       d.nationality, d.salary_type as "salary_type: SalaryType",
                       d.is_active, d.self_entry_enabled,
                       d.room_rent_aed, d.commission_rate,
-                      d.joining_date,
+                      d.joining_date, d.license_number,
                       d.created_at
                FROM drivers d
                JOIN profiles p ON p.id = d.profile_id
@@ -46,7 +46,7 @@ impl DriverRepository for PgDriverRepository {
                       d.nationality, d.salary_type as "salary_type: SalaryType",
                       d.is_active, d.self_entry_enabled,
                       d.room_rent_aed, d.commission_rate,
-                      d.joining_date,
+                      d.joining_date, d.license_number,
                       d.created_at
                FROM drivers d
                JOIN profiles p ON p.id = d.profile_id
@@ -65,7 +65,7 @@ impl DriverRepository for PgDriverRepository {
                       d.nationality, d.salary_type as "salary_type: SalaryType",
                       d.is_active, d.self_entry_enabled,
                       d.room_rent_aed, d.commission_rate,
-                      d.joining_date,
+                      d.joining_date, d.license_number,
                       d.created_at
                FROM drivers d
                JOIN profiles p ON p.id = d.profile_id
@@ -77,19 +77,19 @@ impl DriverRepository for PgDriverRepository {
         Ok(row)
     }
 
-    async fn create(&self, profile_id: Uuid, nationality: &str, salary_type: SalaryType, room_rent_aed: Decimal, commission_rate: Option<Decimal>, joining_date: Option<NaiveDate>) -> Result<Driver, AppError> {
+    async fn create(&self, profile_id: Uuid, nationality: &str, salary_type: SalaryType, room_rent_aed: Decimal, commission_rate: Option<Decimal>, joining_date: Option<NaiveDate>, license_number: Option<&str>) -> Result<Driver, AppError> {
         let row = sqlx::query_as!(
             Driver,
             r#"WITH ins AS (
-                INSERT INTO drivers (profile_id, nationality, salary_type, room_rent_aed, commission_rate, joining_date)
-                VALUES ($1, $2, $3, $4, $5, $6)
-                RETURNING id, profile_id, nationality, salary_type, is_active, self_entry_enabled, room_rent_aed, commission_rate, joining_date, created_at
+                INSERT INTO drivers (profile_id, nationality, salary_type, room_rent_aed, commission_rate, joining_date, license_number)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                RETURNING id, profile_id, nationality, salary_type, is_active, self_entry_enabled, room_rent_aed, commission_rate, joining_date, license_number, created_at
                )
                SELECT ins.id, ins.profile_id, p.full_name, p.email,
                       ins.nationality, ins.salary_type as "salary_type: SalaryType",
                       ins.is_active, ins.self_entry_enabled,
                       ins.room_rent_aed, ins.commission_rate,
-                      ins.joining_date,
+                      ins.joining_date, ins.license_number,
                       ins.created_at
                FROM ins JOIN profiles p ON p.id = ins.profile_id"#,
             profile_id,
@@ -98,25 +98,26 @@ impl DriverRepository for PgDriverRepository {
             room_rent_aed,
             commission_rate,
             joining_date,
+            license_number,
         )
         .fetch_one(&self.pool)
         .await?;
         Ok(row)
     }
 
-    async fn update(&self, id: Uuid, nationality: &str, salary_type: SalaryType, room_rent_aed: Decimal, commission_rate: Option<Decimal>, joining_date: Option<NaiveDate>) -> Result<Driver, AppError> {
+    async fn update(&self, id: Uuid, nationality: &str, salary_type: SalaryType, room_rent_aed: Decimal, commission_rate: Option<Decimal>, joining_date: Option<NaiveDate>, license_number: Option<&str>) -> Result<Driver, AppError> {
         let row = sqlx::query_as!(
             Driver,
             r#"WITH upd AS (
-                UPDATE drivers SET nationality = $2, salary_type = $3, room_rent_aed = $4, commission_rate = $5, joining_date = $6, updated_at = NOW()
+                UPDATE drivers SET nationality = $2, salary_type = $3, room_rent_aed = $4, commission_rate = $5, joining_date = $6, license_number = $7, updated_at = NOW()
                 WHERE id = $1
-                RETURNING id, profile_id, nationality, salary_type, is_active, self_entry_enabled, room_rent_aed, commission_rate, joining_date, created_at
+                RETURNING id, profile_id, nationality, salary_type, is_active, self_entry_enabled, room_rent_aed, commission_rate, joining_date, license_number, created_at
                )
                SELECT upd.id, upd.profile_id, p.full_name, p.email,
                       upd.nationality, upd.salary_type as "salary_type: SalaryType",
                       upd.is_active, upd.self_entry_enabled,
                       upd.room_rent_aed, upd.commission_rate,
-                      upd.joining_date,
+                      upd.joining_date, upd.license_number,
                       upd.created_at
                FROM upd JOIN profiles p ON p.id = upd.profile_id"#,
             id,
@@ -125,6 +126,7 @@ impl DriverRepository for PgDriverRepository {
             room_rent_aed,
             commission_rate,
             joining_date,
+            license_number,
         )
         .fetch_one(&self.pool)
         .await?;

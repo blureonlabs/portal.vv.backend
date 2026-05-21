@@ -38,6 +38,8 @@ impl DocumentRepository for PgDocumentRepository {
                 expiry_date,
                 uploaded_by,
                 notes,
+                document_number,
+                issue_date,
                 created_at
             FROM documents
             WHERE entity_type = $1
@@ -57,8 +59,8 @@ impl DocumentRepository for PgDocumentRepository {
         let row = sqlx::query_as!(
             Document,
             r#"
-            INSERT INTO documents (entity_type, entity_id, doc_type, file_url, file_name, expiry_date, uploaded_by, notes)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO documents (entity_type, entity_id, doc_type, file_url, file_name, expiry_date, uploaded_by, notes, document_number, issue_date)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING
                 id,
                 entity_type AS "entity_type: DocumentEntity",
@@ -69,6 +71,8 @@ impl DocumentRepository for PgDocumentRepository {
                 expiry_date,
                 uploaded_by,
                 notes,
+                document_number,
+                issue_date,
                 created_at
             "#,
             payload.entity_type as DocumentEntity,
@@ -79,6 +83,8 @@ impl DocumentRepository for PgDocumentRepository {
             payload.expiry_date,
             payload.uploaded_by,
             payload.notes,
+            payload.document_number,
+            payload.issue_date,
         )
         .fetch_one(&self.pool)
         .await?;

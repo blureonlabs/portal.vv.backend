@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "WITH upd AS (\n                UPDATE drivers SET nationality = $2, salary_type = $3, room_rent_aed = $4, commission_rate = $5, joining_date = $6, updated_at = NOW()\n                WHERE id = $1\n                RETURNING id, profile_id, nationality, salary_type, is_active, self_entry_enabled, room_rent_aed, commission_rate, joining_date, created_at\n               )\n               SELECT upd.id, upd.profile_id, p.full_name, p.email,\n                      upd.nationality, upd.salary_type as \"salary_type: SalaryType\",\n                      upd.is_active, upd.self_entry_enabled,\n                      upd.room_rent_aed, upd.commission_rate,\n                      upd.joining_date,\n                      upd.created_at\n               FROM upd JOIN profiles p ON p.id = upd.profile_id",
+  "query": "WITH ins AS (\n                INSERT INTO drivers (profile_id, nationality, salary_type, room_rent_aed, commission_rate, joining_date, license_number)\n                VALUES ($1, $2, $3, $4, $5, $6, $7)\n                RETURNING id, profile_id, nationality, salary_type, is_active, self_entry_enabled, room_rent_aed, commission_rate, joining_date, license_number, created_at\n               )\n               SELECT ins.id, ins.profile_id, p.full_name, p.email,\n                      ins.nationality, ins.salary_type as \"salary_type: SalaryType\",\n                      ins.is_active, ins.self_entry_enabled,\n                      ins.room_rent_aed, ins.commission_rate,\n                      ins.joining_date, ins.license_number,\n                      ins.created_at\n               FROM ins JOIN profiles p ON p.id = ins.profile_id",
   "describe": {
     "columns": [
       {
@@ -71,6 +71,11 @@
       },
       {
         "ordinal": 11,
+        "name": "license_number",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
@@ -93,7 +98,8 @@
         },
         "Numeric",
         "Numeric",
-        "Date"
+        "Date",
+        "Text"
       ]
     },
     "nullable": [
@@ -108,8 +114,9 @@
       false,
       true,
       true,
+      true,
       false
     ]
   },
-  "hash": "8bdbfb64144299cb00b55c4010cefab9fadd48afe202f70de0010a010a44420f"
+  "hash": "757419e9e3bca13981091b4d3eccee402dd487ac2ebbb9299aaa88c0b27090ad"
 }

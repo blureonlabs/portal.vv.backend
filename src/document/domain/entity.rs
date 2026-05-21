@@ -36,6 +36,8 @@ pub struct Document {
     pub expiry_date: Option<NaiveDate>,
     pub uploaded_by: Uuid,
     pub notes: Option<String>,
+    pub document_number: Option<String>,
+    pub issue_date: Option<NaiveDate>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -48,4 +50,6 @@ pub struct CreateDocument {
     pub expiry_date: Option<NaiveDate>,
     pub uploaded_by: Uuid,
     pub notes: Option<String>,
+    pub document_number: Option<String>,
+    pub issue_date: Option<NaiveDate>,
 }

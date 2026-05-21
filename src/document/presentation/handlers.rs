@@ -61,6 +61,8 @@ pub async fn create_document(
             body.expiry_date,
             user.id,
             body.notes,
+            body.document_number,
+            body.issue_date,
         )
         .await?;
     Ok(HttpResponse::Created().json(ApiResponse::ok(DocumentResponse::from(doc))))

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO documents (entity_type, entity_id, doc_type, file_url, file_name, expiry_date, uploaded_by, notes)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n            RETURNING\n                id,\n                entity_type AS \"entity_type: DocumentEntity\",\n                entity_id,\n                doc_type AS \"doc_type: DocumentType\",\n                file_url,\n                file_name,\n                expiry_date,\n                uploaded_by,\n                notes,\n                created_at\n            ",
+  "query": "\n            INSERT INTO documents (entity_type, entity_id, doc_type, file_url, file_name, expiry_date, uploaded_by, notes, document_number, issue_date)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n            RETURNING\n                id,\n                entity_type AS \"entity_type: DocumentEntity\",\n                entity_id,\n                doc_type AS \"doc_type: DocumentType\",\n                file_url,\n                file_name,\n                expiry_date,\n                uploaded_by,\n                notes,\n                document_number,\n                issue_date,\n                created_at\n            ",
   "describe": {
     "columns": [
       {
@@ -77,6 +77,16 @@
       },
       {
         "ordinal": 9,
+        "name": "document_number",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "issue_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
@@ -117,7 +127,9 @@
         "Text",
         "Date",
         "Uuid",
-        "Text"
+        "Text",
+        "Text",
+        "Date"
       ]
     },
     "nullable": [
@@ -130,8 +142,10 @@
       true,
       false,
       true,
+      true,
+      true,
       false
     ]
   },
-  "hash": "1899106fd9176f2df4b343ef6360031dd16b193e5fb10818b88196b076f8120e"
+  "hash": "20d5c26495536c95080a32fe8afa2273ebdf2611bb53ea486f812e7e27ff835e"
 }

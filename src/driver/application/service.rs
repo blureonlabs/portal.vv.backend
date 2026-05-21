@@ -36,12 +36,13 @@ impl DriverService {
         room_rent_aed: Decimal,
         commission_rate: Option<Decimal>,
         joining_date: Option<NaiveDate>,
+        license_number: Option<String>,
     ) -> Result<Driver, AppError> {
         if self.repo.find_by_profile_id(profile_id).await?.is_some() {
             return Err(AppError::Conflict("Driver profile already exists for this user".into()));
         }
 
-        let driver = self.repo.create(profile_id, &nationality, salary_type, room_rent_aed, commission_rate, joining_date).await?;
+        let driver = self.repo.create(profile_id, &nationality, salary_type, room_rent_aed, commission_rate, joining_date, license_number.as_deref()).await?;
 
         self.audit.log(actor_id, actor_role, "driver", Some(driver.id), "created",
             Some(serde_json::json!({ "profile_id": profile_id }))).await?;
@@ -59,6 +60,7 @@ impl DriverService {
         room_rent_aed: Decimal,
         commission_rate: Option<Decimal>,
         joining_date: Option<NaiveDate>,
+        license_number: Option<String>,
     ) -> Result<Driver, AppError> {
         let old = self.repo.find_by_id(id).await?
             .ok_or_else(|| AppError::NotFound("Driver not found".into()))?;
@@ -85,8 +87,11 @@ impl DriverService {
         if old_jd != new_jd {
             self.repo.log_edit(id, actor_id, "joining_date", old_jd.as_deref(), new_jd.as_deref()).await?;
         }
+        if old.license_number != license_number {
+            self.repo.log_edit(id, actor_id, "license_number", old.license_number.as_deref(), license_number.as_deref()).await?;
+        }
 
-        let driver = self.repo.update(id, &nationality, salary_type, room_rent_aed, commission_rate, joining_date).await?;
+        let driver = self.repo.update(id, &nationality, salary_type, room_rent_aed, commission_rate, joining_date, license_number.as_deref()).await?;
 
         self.audit.log(actor_id, actor_role, "driver", Some(id), "updated", None).await?;
 

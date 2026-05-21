@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id,\n                entity_type AS \"entity_type: DocumentEntity\",\n                entity_id,\n                doc_type AS \"doc_type: DocumentType\",\n                file_url,\n                file_name,\n                expiry_date,\n                uploaded_by,\n                notes,\n                created_at\n            FROM documents\n            WHERE entity_type = $1\n              AND entity_id = $2\n            ORDER BY created_at DESC\n            ",
+  "query": "\n            SELECT\n                id,\n                entity_type AS \"entity_type: DocumentEntity\",\n                entity_id,\n                doc_type AS \"doc_type: DocumentType\",\n                file_url,\n                file_name,\n                expiry_date,\n                uploaded_by,\n                notes,\n                document_number,\n                issue_date,\n                created_at\n            FROM documents\n            WHERE entity_type = $1\n              AND entity_id = $2\n            ORDER BY created_at DESC\n            ",
   "describe": {
     "columns": [
       {
@@ -77,6 +77,16 @@
       },
       {
         "ordinal": 9,
+        "name": "document_number",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "issue_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
@@ -107,8 +117,10 @@
       true,
       false,
       true,
+      true,
+      true,
       false
     ]
   },
-  "hash": "1e3875baef4b685e23124ae822b5da461c82e6a466b5a18df211273a5a402a7a"
+  "hash": "21a7caef4933f3e21d58bf3b379fb1d7cdeac83c55147b3245affe7a6924e9b2"
 }

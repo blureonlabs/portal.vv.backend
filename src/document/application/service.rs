@@ -35,6 +35,8 @@ impl DocumentService {
         expiry_date: Option<chrono::NaiveDate>,
         uploaded_by: Uuid,
         notes: Option<String>,
+        document_number: Option<String>,
+        issue_date: Option<chrono::NaiveDate>,
     ) -> Result<Document, AppError> {
         if file_url.trim().is_empty() {
             return Err(AppError::BadRequest("file_url is required".into()));
@@ -52,6 +54,8 @@ impl DocumentService {
             expiry_date,
             uploaded_by,
             notes,
+            document_number,
+            issue_date,
         };
 
         self.repo.create(payload).await
