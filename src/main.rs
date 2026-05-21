@@ -34,61 +34,13 @@ mod document;
 use config::AppConfig;
 use database::infrastructure::PgDatabase;
 
-use auth::{
-    domain::repository::AuthRepository,
-    infrastructure::{PgAuthRepository, SupabaseAdminClient},
-    application::service::AuthService,
-};
+use audit::application::service::AuditService;
 use notification::{
     infrastructure::ResendClient,
     application::service::NotificationService,
 };
-use audit::application::service::AuditService;
-use driver::{
-    domain::repository::DriverRepository,
-    infrastructure::PgDriverRepository,
-    application::service::DriverService,
-};
-use vehicle::{
-    domain::repository::VehicleRepository,
-    infrastructure::PgVehicleRepository,
-    application::service::VehicleService,
-};
-use trip::{
-    infrastructure::PgTripRepository,
-    application::service::TripService,
-};
-use finance::{
-    infrastructure::PgFinanceRepository,
-    application::service::FinanceService,
-};
-use advance::{
-    infrastructure::PgAdvanceRepository,
-    application::service::AdvanceService,
-};
-use salary::{
-    infrastructure::postgres::PgSalaryRepository,
-    infrastructure::pdf::SalaryPdfService,
-    application::service::SalaryService,
-};
+use common::deps::SharedDeps;
 use common::ports::DeductionPort;
-use hr::{
-    infrastructure::PgHrRepository,
-    application::service::HrService,
-};
-use invoice::{
-    infrastructure::{PgInvoiceRepository, PdfService},
-    application::service::InvoiceService,
-};
-use settings::{
-    infrastructure::PgSettingsRepository,
-    application::service::SettingsService,
-};
-use report::application::service::ReportService;
-use owner::{
-    infrastructure::PgOwnerRepository,
-    application::service::OwnerService,
-};
 
 #[derive(Parser)]
 #[command(name = "fms", about = "Fleet Management System — UAE Operations")]
@@ -140,114 +92,43 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
 
     let config = Arc::new(config);
 
-    // ── Build shared services ─────────────────────────────────────────────────
+    // ── Core shared deps ─────────────────────────────────────────────────────
     let resend = Arc::new(ResendClient::new(&config));
     let notification_svc = Arc::new(NotificationService::new(Arc::clone(&resend)));
     let audit_svc = Arc::new(AuditService::new(db.pg_pool().clone()));
 
-    let auth_repo: Arc<dyn AuthRepository> = Arc::new(PgAuthRepository::new(db.pg_pool().clone()));
-    let supabase = Arc::new(SupabaseAdminClient::new(&config));
-    let auth_svc = Arc::new(AuthService::new(
-        Arc::clone(&auth_repo),
-        Arc::clone(&supabase),
-        Arc::clone(&config),
-        Arc::clone(&notification_svc),
-        Arc::clone(&audit_svc),
-    ));
+    let deps = SharedDeps {
+        pool: db.pg_pool().clone(),
+        config: Arc::clone(&config),
+        audit: Arc::clone(&audit_svc),
+        notification: Arc::clone(&notification_svc),
+    };
 
-    let driver_repo: Arc<dyn DriverRepository> = Arc::new(PgDriverRepository::new(db.pg_pool().clone()));
-    let driver_svc = Arc::new(DriverService::new(Arc::clone(&driver_repo), Arc::clone(&audit_svc)));
+    // ── Build per-feature deps (once, outside the worker closure) ────────────
+    let auth_deps = auth::configure::build(&deps);
+    let driver_deps = driver::configure::build(&deps);
+    let vehicle_deps = vehicle::configure::build(&deps);
+    let trip_deps = trip::configure::build(&deps);
+    let finance_deps = finance::configure::build(&deps);
+    let advance_deps = advance::configure::build(&deps);
+    let hr_deps = hr::configure::build(&deps);
+    let invoice_deps = invoice::configure::build(&deps).await?;
+    let settings_deps = settings::configure::build(&deps);
+    let report_deps = report::configure::build(&deps);
+    let audit_deps = audit::configure::build(Arc::clone(&audit_svc));
+    let owner_deps = owner::configure::build(&deps);
+    let comms_deps = comms::configure::build(&deps);
+    let document_deps = document::configure::build(&deps);
+    let notification_deps = notification::configure::build(Arc::clone(&notification_svc));
+    let platform_deps = platform::configure::build(&deps);
 
-    let vehicle_repo: Arc<dyn VehicleRepository> = Arc::new(PgVehicleRepository::new(db.pg_pool().clone()));
-    let vehicle_svc = Arc::new(VehicleService::new(Arc::clone(&vehicle_repo), Arc::clone(&audit_svc)));
+    // Cross-feature wiring: salary needs advance (DeductionPort) + settings repo
+    let deduction_port: Arc<dyn DeductionPort> = advance_deps.repo.clone();
+    let salary_deps = salary::configure::build(&deps, deduction_port, Arc::clone(&settings_deps.repo));
 
-    let trip_repo = Arc::new(PgTripRepository::new(db.pg_pool().clone()));
-    let trip_svc = Arc::new(TripService::new(trip_repo, Arc::clone(&audit_svc)));
-
-    let finance_repo = Arc::new(PgFinanceRepository::new(db.pg_pool().clone()));
-    let finance_svc = Arc::new(FinanceService::new(finance_repo, Arc::clone(&audit_svc)));
-
-    let advance_repo = Arc::new(PgAdvanceRepository::new(db.pg_pool().clone()));
-    let advance_svc = Arc::new(AdvanceService::new(
-        Arc::clone(&advance_repo) as Arc<dyn advance::domain::repository::AdvanceRepository>,
-        Arc::clone(&audit_svc),
-    ));
-
-    let hr_repo = Arc::new(PgHrRepository::new(db.pg_pool().clone()));
-    let hr_svc = Arc::new(HrService::new(hr_repo, Arc::clone(&audit_svc)));
-
-    let invoice_repo = Arc::new(PgInvoiceRepository::new(db.pg_pool().clone()));
-    let pdf_svc = Arc::new(PdfService::new(&config));
-
-    let company_name = sqlx::query!("SELECT value FROM settings WHERE key = 'company_name'")
-        .fetch_optional(db.pg_pool())
-        .await?
-        .map(|r| r.value)
-        .unwrap_or_else(|| "Fleet Management Co.".to_string());
-    let company_address = sqlx::query!("SELECT value FROM settings WHERE key = 'company_address'")
-        .fetch_optional(db.pg_pool())
-        .await?
-        .map(|r| r.value)
-        .unwrap_or_else(|| "Dubai, UAE".to_string());
-
-    let invoice_svc = Arc::new(InvoiceService::new(invoice_repo, pdf_svc, Arc::clone(&audit_svc), company_name, company_address));
-
-    let settings_repo: Arc<dyn settings::domain::repository::SettingsRepository> =
-        Arc::new(PgSettingsRepository::new(db.pg_pool().clone()));
-    let settings_svc = Arc::new(SettingsService::new(Arc::clone(&settings_repo), Arc::clone(&audit_svc)));
-
-    let report_svc = Arc::new(ReportService::new(db.pg_pool().clone()));
-
-    let salary_repo = Arc::new(PgSalaryRepository::new(db.pg_pool().clone()));
-    let deduction_port: Arc<dyn DeductionPort> = Arc::clone(&advance_repo) as Arc<dyn DeductionPort>;
-    let salary_pdf_svc = Arc::new(SalaryPdfService::new(&config));
-    let salary_svc = Arc::new(SalaryService::new(
-        salary_repo,
-        Arc::clone(&settings_repo),
-        deduction_port,
-        Arc::clone(&audit_svc),
-        salary_pdf_svc,
-    ));
-
-    let owner_repo: Arc<dyn owner::domain::repository::OwnerRepository> =
-        Arc::new(PgOwnerRepository::new(db.pg_pool().clone()));
-    let owner_svc = Arc::new(OwnerService::new(Arc::clone(&owner_repo)));
-
-    let platform_repo: Arc<dyn platform::domain::repository::PlatformRepository> =
-        Arc::new(platform::infrastructure::postgres::PgPlatformRepository::new(db.pg_pool().clone()));
-
-    let comms_repo = comms::infrastructure::PgCommsRepository::new(db.pg_pool().clone());
-    let comms_svc = Arc::new(comms::application::service::CommsService::new(
-        comms_repo,
-        Arc::clone(&notification_svc),
-    ));
-
-    let document_repo: Arc<dyn document::domain::repository::DocumentRepository> =
-        Arc::new(document::infrastructure::PgDocumentRepository::new(db.pg_pool().clone()));
-    let document_svc = Arc::new(document::application::service::DocumentService::new(document_repo));
-
-    // ── Clone for move into closure ───────────────────────────────────────────
+    // ── Data handles for items registered at app-level ───────────────────────
     let config_data = web::Data::new((*config).clone());
     let db_data = web::Data::new(db);
-    let auth_svc_data = web::Data::new(Arc::clone(&auth_svc));
-    let auth_repo_data = web::Data::new(Arc::clone(&auth_repo));
-    let driver_svc_data = web::Data::new(Arc::clone(&driver_svc));
-    let vehicle_svc_data = web::Data::new(Arc::clone(&vehicle_svc));
-    let trip_svc_data = web::Data::new(Arc::clone(&trip_svc));
-    let finance_svc_data = web::Data::new(Arc::clone(&finance_svc));
-    let advance_svc_data = web::Data::new(Arc::clone(&advance_svc));
-    let hr_svc_data = web::Data::new(Arc::clone(&hr_svc));
-    let invoice_svc_data = web::Data::new(Arc::clone(&invoice_svc));
-    let settings_svc_data = web::Data::new(Arc::clone(&settings_svc));
-    let audit_svc_data = web::Data::new(Arc::clone(&audit_svc));
-    let report_svc_data = web::Data::new(Arc::clone(&report_svc));
-    let salary_svc_data = web::Data::new(Arc::clone(&salary_svc));
-    let owner_svc_data = web::Data::new(Arc::clone(&owner_svc));
-    let supabase_data = web::Data::new(Arc::clone(&supabase));
-    let comms_svc_data = web::Data::new(Arc::clone(&comms_svc));
-    let notification_svc_data = web::Data::new(Arc::clone(&notification_svc));
-    let document_svc_data = web::Data::new(Arc::clone(&document_svc));
-    let platform_repo_data = web::Data::new(Arc::clone(&platform_repo));
 
     let governor_conf = GovernorConfigBuilder::default()
         .seconds_per_request(2)
@@ -270,47 +151,29 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
             .wrap(tracing_actix_web::TracingLogger::default())
             .app_data(config_data.clone())
             .app_data(db_data.clone())
-            .app_data(auth_svc_data.clone())
-            .app_data(auth_repo_data.clone())
-            .app_data(driver_svc_data.clone())
-            .app_data(vehicle_svc_data.clone())
-            .app_data(trip_svc_data.clone())
-            .app_data(finance_svc_data.clone())
-            .app_data(advance_svc_data.clone())
-            .app_data(hr_svc_data.clone())
-            .app_data(invoice_svc_data.clone())
-            .app_data(settings_svc_data.clone())
-            .app_data(audit_svc_data.clone())
-            .app_data(report_svc_data.clone())
-            .app_data(salary_svc_data.clone())
-            .app_data(owner_svc_data.clone())
-            .app_data(supabase_data.clone())
-            .app_data(comms_svc_data.clone())
-            .app_data(notification_svc_data.clone())
-            .app_data(document_svc_data.clone())
-            .app_data(platform_repo_data.clone())
             .route("/", web::get().to(|| async { HttpResponse::Ok().body("FMS OK") }))
             .route("/health", web::get().to(health_check))
             .service(
                 web::scope("/api/v1")
                     .route("/health", web::get().to(health_check))
-                    .configure(auth::routes)
-                    .configure(driver::routes)
-                    .configure(vehicle::routes)
-                    .configure(trip::routes)
-                    .configure(finance::routes)
-                    .configure(advance::routes)
-                    .configure(salary::routes)
-                    .configure(hr::routes)
-                    .configure(invoice::routes)
-                    .configure(report::routes)
-                    .configure(settings::routes)
-                    .configure(audit::routes)
-                    .configure(platform::routes)
-                    .configure(owner::routes)
-                    .configure(portal::routes)
-                    .configure(comms::routes)
-                    .configure(document::routes)
+                    .configure(|cfg| auth::configure::register(&auth_deps, cfg))
+                    .configure(|cfg| driver::configure::register(&driver_deps, cfg))
+                    .configure(|cfg| vehicle::configure::register(&vehicle_deps, cfg))
+                    .configure(|cfg| trip::configure::register(&trip_deps, cfg))
+                    .configure(|cfg| finance::configure::register(&finance_deps, cfg))
+                    .configure(|cfg| advance::configure::register(&advance_deps, cfg))
+                    .configure(|cfg| salary::configure::register(&salary_deps, cfg))
+                    .configure(|cfg| hr::configure::register(&hr_deps, cfg))
+                    .configure(|cfg| invoice::configure::register(&invoice_deps, cfg))
+                    .configure(|cfg| report::configure::register(&report_deps, cfg))
+                    .configure(|cfg| settings::configure::register(&settings_deps, cfg))
+                    .configure(|cfg| audit::configure::register(&audit_deps, cfg))
+                    .configure(|cfg| platform::configure::register(&platform_deps, cfg))
+                    .configure(|cfg| owner::configure::register(&owner_deps, cfg))
+                    .configure(portal::configure::register)
+                    .configure(|cfg| comms::configure::register(&comms_deps, cfg))
+                    .configure(|cfg| document::configure::register(&document_deps, cfg))
+                    .configure(|cfg| notification::configure::register(&notification_deps, cfg))
             )
     })
     .bind(&addr)?;
