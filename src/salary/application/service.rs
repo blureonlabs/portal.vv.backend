@@ -59,10 +59,11 @@ impl SalaryService {
                 .unwrap_or_else(|| Decimal::from_f64(default).unwrap())
         };
 
-        let global_commission_rate = get_setting("commission_rate",          0.75);
-        let target_high_aed        = get_setting("salary_target_high_aed",  0.0);
-        let target_low_aed         = get_setting("salary_target_low_aed",   0.0);
-        let fixed_car_low_aed      = get_setting("salary_fixed_car_low_aed", 0.0);
+        let global_commission_rate = get_setting("commission_rate",              0.30);
+        let target_high_aed        = get_setting("salary_target_high_aed",    12300.0);
+        let target_low_aed         = get_setting("salary_target_low_aed",     6600.0);
+        let fixed_car_low_aed      = get_setting("salary_fixed_car_low_aed",  800.0);
+        let fixed_car_high_aed     = get_setting("salary_fixed_car_high_aed", 1600.0);
 
         // Per-driver overrides: driver's commission_rate takes precedence over global setting.
         let commission_rate = req.driver_commission_rate.unwrap_or(global_commission_rate);
@@ -99,6 +100,7 @@ impl SalaryService {
 
         // 3. Derived totals from inputs
         let salik_aed = req.salik_used_aed - req.salik_refund_aed;
+        let cash_submit_aed = req.total_cash_received_aed - req.cash_not_handover_aed;
 
         let car_charging_diff_aed = req.car_charging_used_aed.map(|used| req.car_charging_aed - used);
         let cash_diff_aed         = req.total_cash_submit_aed.map(|sub| req.total_cash_received_aed - sub);
@@ -107,34 +109,42 @@ impl SalaryService {
         let (base_amount_aed, commission_aed, target_amount_aed, fixed_car_charging_aed, final_salary_aed) =
             match req.salary_type {
                 SalaryType::Commission => {
-                    let commission = req.total_earnings_aed * commission_rate;
+                    // Step 1: Base = Total Earnings - Car Charging - Salik
+                    let base = req.total_earnings_aed - req.car_charging_aed - salik_aed;
+                    // Step 2: Commission = Base × Commission %
+                    let commission = base * commission_rate;
+                    // Step 3: Final = Commission - RTA Fine - Cash Submit - Card Charges
+                    // Room rent is NOT deducted in commission type per spec
                     let final_sal = commission
-                        - salik_aed
                         - req.rta_fine_aed
-                        - req.card_service_charges_aed
-                        - effective_room_rent;
-                    (commission, Some(commission), None, None, final_sal)
+                        - cash_submit_aed
+                        - req.card_service_charges_aed;
+                    (base, Some(commission), None, None, final_sal)
                 }
                 SalaryType::TargetHigh => {
-                    let base = target_high_aed
-                        + car_charging_diff_aed.unwrap_or(Decimal::ZERO);
+                    // Step 1: Adjustments
+                    let car_adj = fixed_car_high_aed - req.car_charging_used_aed.unwrap_or(Decimal::ZERO);
+                    let cash_adj = req.total_cash_received_aed - req.cash_not_handover_aed;
+                    // Step 2: Base = (Total Earnings - Target) - Car Adj - Cash Adj
+                    let base = (req.total_earnings_aed - target_high_aed) - car_adj - cash_adj;
+                    // Step 3: Final = Base - RTA Fine - Salik - Card Charges - Room Rent
                     let final_sal = base
-                        - salik_aed
                         - req.rta_fine_aed
+                        - salik_aed
                         - req.card_service_charges_aed
-                        - effective_room_rent
-                        - req.cash_not_handover_aed;
-                    (base, None, Some(target_high_aed), None, final_sal)
+                        - effective_room_rent;
+                    (base, None, Some(target_high_aed), Some(fixed_car_high_aed), final_sal)
                 }
                 SalaryType::TargetLow => {
-                    let base = target_low_aed
-                        + car_charging_diff_aed.unwrap_or(Decimal::ZERO);
+                    // Same logic as TargetHigh with different constants
+                    let car_adj = fixed_car_low_aed - req.car_charging_used_aed.unwrap_or(Decimal::ZERO);
+                    let cash_adj = req.total_cash_received_aed - req.cash_not_handover_aed;
+                    let base = (req.total_earnings_aed - target_low_aed) - car_adj - cash_adj;
                     let final_sal = base
-                        - salik_aed
                         - req.rta_fine_aed
+                        - salik_aed
                         - req.card_service_charges_aed
-                        - effective_room_rent
-                        - req.cash_not_handover_aed;
+                        - effective_room_rent;
                     (base, None, Some(target_low_aed), Some(fixed_car_low_aed), final_sal)
                 }
             };
@@ -147,7 +157,7 @@ impl SalaryService {
             salary_type_snapshot:    req.salary_type,
             total_earnings_aed:      req.total_earnings_aed,
             total_cash_received_aed: req.total_cash_received_aed,
-            total_cash_submit_aed:   req.total_cash_submit_aed,
+            total_cash_submit_aed:   Some(cash_submit_aed),
             cash_not_handover_aed:   req.cash_not_handover_aed,
             cash_diff_aed,
             car_charging_aed:        req.car_charging_aed,
@@ -260,10 +270,11 @@ impl SalaryService {
                 .unwrap_or_else(|| Decimal::from_f64(default).unwrap())
         };
 
-        let global_commission_rate = get_setting("commission_rate", 0.75);
-        let target_high_aed = get_setting("salary_target_high_aed", 0.0);
-        let target_low_aed = get_setting("salary_target_low_aed", 0.0);
-        let fixed_car_low_aed = get_setting("salary_fixed_car_low_aed", 0.0);
+        let global_commission_rate = get_setting("commission_rate",              0.30);
+        let target_high_aed        = get_setting("salary_target_high_aed",    12300.0);
+        let target_low_aed         = get_setting("salary_target_low_aed",     6600.0);
+        let fixed_car_low_aed      = get_setting("salary_fixed_car_low_aed",  800.0);
+        let fixed_car_high_aed     = get_setting("salary_fixed_car_high_aed", 1600.0);
 
         let commission_rate = fields.driver_commission_rate.unwrap_or(global_commission_rate);
         let effective_room_rent = match fields.room_rent_aed {
@@ -294,6 +305,7 @@ impl SalaryService {
 
         // 4. Derived totals
         let salik_aed = fields.salik_used_aed - fields.salik_refund_aed;
+        let cash_submit_aed = fields.total_cash_received_aed - fields.cash_not_handover_aed;
         let car_charging_diff_aed = fields.car_charging_used_aed.map(|used| fields.car_charging_aed - used);
         let cash_diff_aed = fields.total_cash_submit_aed.map(|sub| fields.total_cash_received_aed - sub);
 
@@ -301,32 +313,42 @@ impl SalaryService {
         let (base_amount_aed, commission_aed, target_amount_aed, fixed_car_charging_aed, final_salary_aed) =
             match fields.salary_type {
                 SalaryType::Commission => {
-                    let commission = fields.total_earnings_aed * commission_rate;
+                    // Step 1: Base = Total Earnings - Car Charging - Salik
+                    let base = fields.total_earnings_aed - fields.car_charging_aed - salik_aed;
+                    // Step 2: Commission = Base × Commission %
+                    let commission = base * commission_rate;
+                    // Step 3: Final = Commission - RTA Fine - Cash Submit - Card Charges
+                    // Room rent is NOT deducted in commission type per spec
                     let final_sal = commission
-                        - salik_aed
                         - fields.rta_fine_aed
-                        - fields.card_service_charges_aed
-                        - effective_room_rent;
-                    (commission, Some(commission), None, None, final_sal)
+                        - cash_submit_aed
+                        - fields.card_service_charges_aed;
+                    (base, Some(commission), None, None, final_sal)
                 }
                 SalaryType::TargetHigh => {
-                    let base = target_high_aed + car_charging_diff_aed.unwrap_or(Decimal::ZERO);
+                    // Step 1: Adjustments
+                    let car_adj = fixed_car_high_aed - fields.car_charging_used_aed.unwrap_or(Decimal::ZERO);
+                    let cash_adj = fields.total_cash_received_aed - fields.cash_not_handover_aed;
+                    // Step 2: Base = (Total Earnings - Target) - Car Adj - Cash Adj
+                    let base = (fields.total_earnings_aed - target_high_aed) - car_adj - cash_adj;
+                    // Step 3: Final = Base - RTA Fine - Salik - Card Charges - Room Rent
                     let final_sal = base
-                        - salik_aed
                         - fields.rta_fine_aed
+                        - salik_aed
                         - fields.card_service_charges_aed
-                        - effective_room_rent
-                        - fields.cash_not_handover_aed;
-                    (base, None, Some(target_high_aed), None, final_sal)
+                        - effective_room_rent;
+                    (base, None, Some(target_high_aed), Some(fixed_car_high_aed), final_sal)
                 }
                 SalaryType::TargetLow => {
-                    let base = target_low_aed + car_charging_diff_aed.unwrap_or(Decimal::ZERO);
+                    // Same logic as TargetHigh with different constants
+                    let car_adj = fixed_car_low_aed - fields.car_charging_used_aed.unwrap_or(Decimal::ZERO);
+                    let cash_adj = fields.total_cash_received_aed - fields.cash_not_handover_aed;
+                    let base = (fields.total_earnings_aed - target_low_aed) - car_adj - cash_adj;
                     let final_sal = base
-                        - salik_aed
                         - fields.rta_fine_aed
+                        - salik_aed
                         - fields.card_service_charges_aed
-                        - effective_room_rent
-                        - fields.cash_not_handover_aed;
+                        - effective_room_rent;
                     (base, None, Some(target_low_aed), Some(fixed_car_low_aed), final_sal)
                 }
             };
@@ -361,7 +383,7 @@ impl SalaryService {
             salary_type_snapshot: fields.salary_type,
             total_earnings_aed: fields.total_earnings_aed,
             total_cash_received_aed: fields.total_cash_received_aed,
-            total_cash_submit_aed: fields.total_cash_submit_aed,
+            total_cash_submit_aed: Some(cash_submit_aed),
             cash_not_handover_aed: fields.cash_not_handover_aed,
             cash_diff_aed,
             car_charging_aed: fields.car_charging_aed,
