@@ -60,7 +60,6 @@ pub struct Salary {
     pub paid_at: Option<DateTime<Utc>>,
 }
 
-#[allow(dead_code)] // adjusted_from_id is read via .bind() in SQL queries
 pub struct CreateSalary {
     pub driver_id: Uuid,
     pub period_month: NaiveDate,
@@ -87,6 +86,7 @@ pub struct CreateSalary {
     pub advance_deduction_aed: Decimal,
     pub net_payable_aed: Decimal,
     pub carry_forward_balance_aed: Decimal,
+    #[allow(dead_code)]
     pub adjusted_from_id: Option<Uuid>,
     pub deductions_json: Option<Value>,
     pub generated_by: Uuid,
