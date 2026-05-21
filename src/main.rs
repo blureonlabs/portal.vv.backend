@@ -25,7 +25,7 @@ mod notification;
 mod report;
 mod settings;
 mod audit;
-mod uber;
+mod platform;
 mod owner;
 mod portal;
 mod comms;
@@ -213,6 +213,9 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
         Arc::new(PgOwnerRepository::new(db.pg_pool().clone()));
     let owner_svc = Arc::new(OwnerService::new(Arc::clone(&owner_repo)));
 
+    let platform_repo: Arc<dyn platform::domain::repository::PlatformRepository> =
+        Arc::new(platform::infrastructure::postgres::PgPlatformRepository::new(db.pg_pool().clone()));
+
     let comms_repo = comms::infrastructure::PgCommsRepository::new(db.pg_pool().clone());
     let comms_svc = Arc::new(comms::application::service::CommsService::new(
         comms_repo,
@@ -244,6 +247,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let comms_svc_data = web::Data::new(Arc::clone(&comms_svc));
     let notification_svc_data = web::Data::new(Arc::clone(&notification_svc));
     let document_svc_data = web::Data::new(Arc::clone(&document_svc));
+    let platform_repo_data = web::Data::new(Arc::clone(&platform_repo));
 
     let governor_conf = GovernorConfigBuilder::default()
         .seconds_per_request(2)
@@ -284,6 +288,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
             .app_data(comms_svc_data.clone())
             .app_data(notification_svc_data.clone())
             .app_data(document_svc_data.clone())
+            .app_data(platform_repo_data.clone())
             .route("/", web::get().to(|| async { HttpResponse::Ok().body("FMS OK") }))
             .route("/health", web::get().to(health_check))
             .service(
@@ -301,7 +306,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
                     .configure(report::routes)
                     .configure(settings::routes)
                     .configure(audit::routes)
-                    .configure(uber::routes)
+                    .configure(platform::routes)
                     .configure(owner::routes)
                     .configure(portal::routes)
                     .configure(comms::routes)
