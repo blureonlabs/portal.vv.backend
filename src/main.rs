@@ -128,6 +128,11 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
 
     // ── Data handles for items registered at app-level ───────────────────────
     let config_data = web::Data::new((*config).clone());
+
+    // Document expiry checker — runs every 24 hours
+    let expiry_pool = db.pg_pool().clone();
+    let expiry_notification = Arc::clone(&notification_svc);
+
     let db_data = web::Data::new(db);
 
     let governor_conf = GovernorConfigBuilder::default()
@@ -179,6 +184,18 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     .bind(&addr)?;
 
     info!("Server bound successfully to {}", addr);
+
+    // Document expiry checker — runs every 24 hours
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(86400));
+        loop {
+            interval.tick().await;
+            notification::application::expiry_checker::check_and_notify_expiring_documents(
+                &expiry_pool, &expiry_notification
+            ).await;
+            tracing::info!("Document expiry check completed");
+        }
+    });
 
     // Keep-alive: prevent Render free-tier spin-down (ticks every 14 min)
     tokio::spawn(async {

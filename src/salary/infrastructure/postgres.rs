@@ -59,7 +59,9 @@ struct SalaryRow {
     payment_date: Option<NaiveDate>,
     payment_mode: Option<String>,
     payment_reference: Option<String>,
+    payment_notes: Option<String>,
     paid_at: Option<chrono::DateTime<chrono::Utc>>,
+    incentives_aed: Decimal,
 }
 
 fn row_to_salary(r: SalaryRow) -> Salary {
@@ -104,7 +106,9 @@ fn row_to_salary(r: SalaryRow) -> Salary {
         payment_date: r.payment_date,
         payment_mode: r.payment_mode,
         payment_reference: r.payment_reference,
+        payment_notes: r.payment_notes,
         paid_at: r.paid_at,
+        incentives_aed: r.incentives_aed,
     }
 }
 
@@ -122,7 +126,8 @@ const SELECT_FIELDS: &str = r#"
     s.deductions_json, s.slip_url,
     s.generated_by, pg.full_name AS generated_by_name, s.generated_at,
     s.status, s.approved_by, s.approved_at,
-    s.payment_date, s.payment_mode, s.payment_reference, s.paid_at
+    s.payment_date, s.payment_mode, s.payment_reference, s.payment_notes, s.paid_at,
+    s.incentives_aed
 "#;
 
 #[async_trait]
@@ -193,9 +198,9 @@ impl SalaryRepository for PgSalaryRepository {
                 target_amount_aed, fixed_car_charging_aed, commission_aed,
                 base_amount_aed, final_salary_aed, advance_deduction_aed, net_payable_aed,
                 carry_forward_balance_aed, adjusted_from_id,
-                deductions_json, generated_by
+                deductions_json, generated_by, incentives_aed
             )
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,NULL,$26,$27)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,NULL,$26,$27,$28)
             ON CONFLICT (driver_id, period_month) WHERE adjusted_from_id IS NULL DO UPDATE SET
                 salary_type_snapshot      = EXCLUDED.salary_type_snapshot,
                 total_earnings_aed        = EXCLUDED.total_earnings_aed,
@@ -222,6 +227,7 @@ impl SalaryRepository for PgSalaryRepository {
                 carry_forward_balance_aed = EXCLUDED.carry_forward_balance_aed,
                 deductions_json           = EXCLUDED.deductions_json,
                 generated_by              = EXCLUDED.generated_by,
+                incentives_aed            = EXCLUDED.incentives_aed,
                 generated_at              = NOW()
             RETURNING id, driver_id,
                 (SELECT full_name FROM profiles WHERE id = (SELECT profile_id FROM drivers WHERE id = salaries.driver_id)) AS driver_name,
@@ -239,7 +245,8 @@ impl SalaryRepository for PgSalaryRepository {
                 (SELECT full_name FROM profiles WHERE id = salaries.generated_by) AS generated_by_name,
                 generated_at,
                 status, approved_by, approved_at,
-                payment_date, payment_mode, payment_reference, paid_at
+                payment_date, payment_mode, payment_reference, payment_notes, paid_at,
+                incentives_aed
             "#,
         ))
         .bind(p.driver_id)
@@ -269,6 +276,7 @@ impl SalaryRepository for PgSalaryRepository {
         .bind(p.carry_forward_balance_aed)
         .bind(p.deductions_json)
         .bind(p.generated_by)
+        .bind(p.incentives_aed)
         .fetch_one(&self.pool)
         .await?;
 
@@ -305,7 +313,8 @@ impl SalaryRepository for PgSalaryRepository {
                deductions_json, slip_url, generated_by, \
                (SELECT full_name FROM profiles WHERE id = generated_by) AS generated_by_name, \
                generated_at, status, approved_by, approved_at, \
-               payment_date, payment_mode, payment_reference, paid_at",
+               payment_date, payment_mode, payment_reference, payment_notes, paid_at, \
+               incentives_aed",
         )
         .bind(id)
         .bind(approved_by)
@@ -322,10 +331,11 @@ impl SalaryRepository for PgSalaryRepository {
         payment_date: NaiveDate,
         payment_mode: String,
         payment_reference: Option<String>,
+        notes: Option<String>,
     ) -> Result<Salary, AppError> {
         let row = sqlx::query_as::<_, SalaryRow>(
             "UPDATE salaries SET status = 'paid', payment_date = $2, payment_mode = $3, \
-               payment_reference = $4, paid_at = NOW() \
+               payment_reference = $4, payment_notes = $5, paid_at = NOW() \
              WHERE id = $1 AND status = 'approved' \
              RETURNING id, driver_id, \
                (SELECT full_name FROM profiles WHERE id = (SELECT profile_id FROM drivers WHERE id = driver_id)) AS driver_name, \
@@ -341,12 +351,14 @@ impl SalaryRepository for PgSalaryRepository {
                deductions_json, slip_url, generated_by, \
                (SELECT full_name FROM profiles WHERE id = generated_by) AS generated_by_name, \
                generated_at, status, approved_by, approved_at, \
-               payment_date, payment_mode, payment_reference, paid_at",
+               payment_date, payment_mode, payment_reference, payment_notes, paid_at, \
+               incentives_aed",
         )
         .bind(id)
         .bind(payment_date)
         .bind(payment_mode)
         .bind(payment_reference)
+        .bind(notes)
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| AppError::BadRequest("Salary must be approved before marking as paid".into()))?;
@@ -366,9 +378,9 @@ impl SalaryRepository for PgSalaryRepository {
                 target_amount_aed, fixed_car_charging_aed, commission_aed, \
                 base_amount_aed, final_salary_aed, advance_deduction_aed, net_payable_aed, \
                 carry_forward_balance_aed, adjusted_from_id, \
-                deductions_json, edited_fields, generated_by \
+                deductions_json, edited_fields, generated_by, incentives_aed \
              ) VALUES ( \
-                $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29 \
+                $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30 \
              ) \
              RETURNING id, driver_id, \
                (SELECT full_name FROM profiles WHERE id = (SELECT profile_id FROM drivers WHERE id = driver_id)) AS driver_name, \
@@ -384,7 +396,8 @@ impl SalaryRepository for PgSalaryRepository {
                deductions_json, slip_url, generated_by, \
                (SELECT full_name FROM profiles WHERE id = generated_by) AS generated_by_name, \
                generated_at, status, approved_by, approved_at, \
-               payment_date, payment_mode, payment_reference, paid_at",
+               payment_date, payment_mode, payment_reference, payment_notes, paid_at, \
+               incentives_aed",
         )
         .bind(p.driver_id)
         .bind(p.period_month)
@@ -415,6 +428,7 @@ impl SalaryRepository for PgSalaryRepository {
         .bind(p.deductions_json)
         .bind(edited_fields)
         .bind(p.generated_by)
+        .bind(p.incentives_aed)
         .fetch_one(&self.pool)
         .await?;
 

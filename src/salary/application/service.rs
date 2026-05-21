@@ -113,9 +113,10 @@ impl SalaryService {
                     let base = req.total_earnings_aed - req.car_charging_aed - salik_aed;
                     // Step 2: Commission = Base × Commission %
                     let commission = base * commission_rate;
-                    // Step 3: Final = Commission - RTA Fine - Cash Submit - Card Charges
+                    // Step 3: Final = Commission + Incentives - RTA Fine - Cash Submit - Card Charges
                     // Room rent is NOT deducted in commission type per spec
                     let final_sal = commission
+                        + req.incentives_aed
                         - req.rta_fine_aed
                         - cash_submit_aed
                         - req.card_service_charges_aed;
@@ -127,8 +128,9 @@ impl SalaryService {
                     let cash_adj = req.total_cash_received_aed - req.cash_not_handover_aed;
                     // Step 2: Base = (Total Earnings - Target) - Car Adj - Cash Adj
                     let base = (req.total_earnings_aed - target_high_aed) - car_adj - cash_adj;
-                    // Step 3: Final = Base - RTA Fine - Salik - Card Charges - Room Rent
+                    // Step 3: Final = Base + Incentives - RTA Fine - Salik - Card Charges - Room Rent
                     let final_sal = base
+                        + req.incentives_aed
                         - req.rta_fine_aed
                         - salik_aed
                         - req.card_service_charges_aed
@@ -141,6 +143,7 @@ impl SalaryService {
                     let cash_adj = req.total_cash_received_aed - req.cash_not_handover_aed;
                     let base = (req.total_earnings_aed - target_low_aed) - car_adj - cash_adj;
                     let final_sal = base
+                        + req.incentives_aed
                         - req.rta_fine_aed
                         - salik_aed
                         - req.card_service_charges_aed
@@ -180,6 +183,7 @@ impl SalaryService {
             adjusted_from_id:        None,
             deductions_json,
             generated_by:            req.generated_by,
+            incentives_aed:          req.incentives_aed,
         };
 
         // Guard: do not overwrite an already-approved or paid salary
@@ -235,8 +239,9 @@ impl SalaryService {
         payment_date: NaiveDate,
         payment_mode: String,
         payment_reference: Option<String>,
+        notes: Option<String>,
     ) -> Result<Salary, AppError> {
-        let salary = self.repo.mark_paid(id, payment_date, payment_mode.clone(), payment_reference.clone()).await?;
+        let salary = self.repo.mark_paid(id, payment_date, payment_mode.clone(), payment_reference.clone(), notes).await?;
         self.audit.log(actor_id, actor_role, "salary", Some(id), "salary.paid",
             Some(serde_json::json!({
                 "salary_id": id,
@@ -313,26 +318,21 @@ impl SalaryService {
         let (base_amount_aed, commission_aed, target_amount_aed, fixed_car_charging_aed, final_salary_aed) =
             match fields.salary_type {
                 SalaryType::Commission => {
-                    // Step 1: Base = Total Earnings - Car Charging - Salik
                     let base = fields.total_earnings_aed - fields.car_charging_aed - salik_aed;
-                    // Step 2: Commission = Base × Commission %
                     let commission = base * commission_rate;
-                    // Step 3: Final = Commission - RTA Fine - Cash Submit - Card Charges
-                    // Room rent is NOT deducted in commission type per spec
                     let final_sal = commission
+                        + fields.incentives_aed
                         - fields.rta_fine_aed
                         - cash_submit_aed
                         - fields.card_service_charges_aed;
                     (base, Some(commission), None, None, final_sal)
                 }
                 SalaryType::TargetHigh => {
-                    // Step 1: Adjustments
                     let car_adj = fixed_car_high_aed - fields.car_charging_used_aed.unwrap_or(Decimal::ZERO);
                     let cash_adj = fields.total_cash_received_aed - fields.cash_not_handover_aed;
-                    // Step 2: Base = (Total Earnings - Target) - Car Adj - Cash Adj
                     let base = (fields.total_earnings_aed - target_high_aed) - car_adj - cash_adj;
-                    // Step 3: Final = Base - RTA Fine - Salik - Card Charges - Room Rent
                     let final_sal = base
+                        + fields.incentives_aed
                         - fields.rta_fine_aed
                         - salik_aed
                         - fields.card_service_charges_aed
@@ -340,11 +340,11 @@ impl SalaryService {
                     (base, None, Some(target_high_aed), Some(fixed_car_high_aed), final_sal)
                 }
                 SalaryType::TargetLow => {
-                    // Same logic as TargetHigh with different constants
                     let car_adj = fixed_car_low_aed - fields.car_charging_used_aed.unwrap_or(Decimal::ZERO);
                     let cash_adj = fields.total_cash_received_aed - fields.cash_not_handover_aed;
                     let base = (fields.total_earnings_aed - target_low_aed) - car_adj - cash_adj;
                     let final_sal = base
+                        + fields.incentives_aed
                         - fields.rta_fine_aed
                         - salik_aed
                         - fields.card_service_charges_aed
@@ -406,6 +406,7 @@ impl SalaryService {
             adjusted_from_id: Some(salary_id),
             deductions_json,
             generated_by: actor_id,
+            incentives_aed: fields.incentives_aed,
         };
 
         let salary = self.repo.create_adjustment(salary_id, payload, diff_json).await?;
@@ -449,6 +450,7 @@ pub struct GenerateRequest {
     /// Driver's per-record commission rate (None = use global setting).
     pub driver_commission_rate:   Option<Decimal>,
     pub generated_by:             Uuid,
+    pub incentives_aed:           Decimal,
 }
 
 pub struct EditSalaryFields {
@@ -466,6 +468,7 @@ pub struct EditSalaryFields {
     pub room_rent_aed:            Option<Decimal>,
     pub driver_room_rent_aed:     Decimal,
     pub driver_commission_rate:   Option<Decimal>,
+    pub incentives_aed:           Decimal,
 }
 
 fn prev_month(d: NaiveDate) -> NaiveDate {

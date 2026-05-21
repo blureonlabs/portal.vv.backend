@@ -1,0 +1,1 @@
+ALTER TABLE salaries ADD COLUMN IF NOT EXISTS payment_notes TEXT;

@@ -30,6 +30,8 @@ pub struct GenerateSalaryBody {
     #[serde(default)]
     pub card_service_charges_aed: Decimal,
     pub room_rent_aed: Option<Decimal>,
+    #[serde(default)]
+    pub incentives_aed: Decimal,
 }
 
 #[derive(Debug, Deserialize)]
@@ -51,6 +53,7 @@ pub struct MarkPaidRequest {
     pub payment_date: NaiveDate,
     pub payment_mode: String,
     pub payment_reference: Option<String>,
+    pub notes: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -73,6 +76,8 @@ pub struct EditSalaryBody {
     #[serde(default)]
     pub card_service_charges_aed: Decimal,
     pub room_rent_aed: Option<Decimal>,
+    #[serde(default)]
+    pub incentives_aed: Decimal,
 }
 
 #[derive(Debug, Serialize)]
@@ -117,7 +122,9 @@ pub struct SalaryResponse {
     pub payment_date: Option<NaiveDate>,
     pub payment_mode: Option<String>,
     pub payment_reference: Option<String>,
+    pub payment_notes: Option<String>,
     pub paid_at: Option<DateTime<Utc>>,
+    pub incentives_aed: Decimal,
 }
 
 impl From<Salary> for SalaryResponse {
@@ -163,7 +170,9 @@ impl From<Salary> for SalaryResponse {
             payment_date: s.payment_date,
             payment_mode: s.payment_mode,
             payment_reference: s.payment_reference,
+            payment_notes: s.payment_notes,
             paid_at: s.paid_at,
+            incentives_aed: s.incentives_aed,
         }
     }
 }
