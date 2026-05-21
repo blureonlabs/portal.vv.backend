@@ -167,6 +167,7 @@ impl SalaryService {
             advance_deduction_aed,
             net_payable_aed,
             carry_forward_balance_aed,
+            adjusted_from_id:        None,
             deductions_json,
             generated_by:            req.generated_by,
         };
@@ -380,11 +381,12 @@ impl SalaryService {
             advance_deduction_aed,
             net_payable_aed,
             carry_forward_balance_aed,
+            adjusted_from_id: Some(salary_id),
             deductions_json,
             generated_by: actor_id,
         };
 
-        let salary = self.repo.update_salary(salary_id, payload, diff_json).await?;
+        let salary = self.repo.create_adjustment(salary_id, payload, diff_json).await?;
 
         // 8. Audit log
         self.audit.log(actor_id, actor_role, "salary", Some(salary_id), "salary.edited",

@@ -45,6 +45,7 @@ pub struct Salary {
     pub net_payable_aed: Decimal,
     pub carry_forward_balance_aed: Decimal,
     pub edited_fields: Option<Value>,
+    pub adjusted_from_id: Option<Uuid>,
     pub deductions_json: Option<Value>,
     pub slip_url: Option<String>,
     pub generated_by: Uuid,
@@ -85,6 +86,7 @@ pub struct CreateSalary {
     pub advance_deduction_aed: Decimal,
     pub net_payable_aed: Decimal,
     pub carry_forward_balance_aed: Decimal,
+    pub adjusted_from_id: Option<Uuid>,
     pub deductions_json: Option<Value>,
     pub generated_by: Uuid,
 }
