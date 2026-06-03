@@ -28,3 +28,4 @@ ALTER TABLE invoice_counters DISABLE ROW LEVEL SECURITY;
 ALTER TABLE config_expense_categories DISABLE ROW LEVEL SECURITY;
 ALTER TABLE config_leave_types DISABLE ROW LEVEL SECURITY;
 ALTER TABLE config_document_types DISABLE ROW LEVEL SECURITY;
+-- force rebuild
