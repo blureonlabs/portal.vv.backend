@@ -23,28 +23,3 @@ pub trait DeductionPort: Send + Sync {
         period_month: NaiveDate,
     ) -> Result<Vec<Uuid>, AppError>;
 }
-
-/// Cross-feature contract: trip module defines this; uber module implements it.
-/// Allows plugging in Uber API without changing trip logic.
-#[allow(dead_code)]
-#[async_trait]
-pub trait TripSourcePort: Send + Sync {
-    async fn fetch_trips(
-        &self,
-        driver_id: Uuid,
-        from: NaiveDate,
-        to: NaiveDate,
-    ) -> Result<Vec<ExternalTrip>, AppError>;
-}
-
-/// Minimal trip data returned by any TripSourcePort implementor.
-#[allow(dead_code)]
-pub struct ExternalTrip {
-    pub driver_id: Uuid,
-    pub trip_date: NaiveDate,
-    pub cash_aed: Decimal,
-    pub card_aed: Decimal,
-    pub other_aed: Decimal,
-    pub external_id: Option<String>,
-    pub notes: Option<String>,
-}
