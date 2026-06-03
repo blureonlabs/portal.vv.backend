@@ -134,6 +134,10 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let expiry_pool = db.pg_pool().clone();
     let expiry_notification = Arc::clone(&notification_svc);
 
+    // Auto-salary scheduler — runs daily
+    let salary_bg_pool = db.pg_pool().clone();
+    let salary_bg_settings = Arc::clone(&settings_deps.repo);
+
     let db_data = web::Data::new(db);
 
     let governor_conf = GovernorConfigBuilder::default()
@@ -198,6 +202,19 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
                 &expiry_pool, &expiry_notification
             ).await;
             tracing::info!("Document expiry check completed");
+        }
+    });
+
+    // Auto-salary checker — runs every 24 hours
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(86400));
+        interval.tick().await; // skip immediate first tick
+        loop {
+            interval.tick().await;
+            salary::application::scheduler::check_and_generate_salaries(
+                &salary_bg_pool, &salary_bg_settings
+            ).await;
+            tracing::info!("Auto-salary check completed");
         }
     });
 

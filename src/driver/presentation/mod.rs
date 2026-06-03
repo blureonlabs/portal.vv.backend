@@ -1,5 +1,6 @@
 pub mod dto;
 pub mod handlers;
+pub mod ledger;
 
 use actix_web::web;
 
@@ -15,5 +16,6 @@ pub fn routes(cfg: &mut web::ServiceConfig) {
             .route("/{id}/activate", web::put().to(handlers::activate_driver))
             .route("/{id}/edits", web::get().to(handlers::list_driver_edits))
             .route("/{id}/self-entry", web::put().to(handlers::set_self_entry))
+            .route("/{id}/ledger", web::get().to(ledger::get_driver_ledger))
     );
 }
