@@ -2,7 +2,7 @@ use std::sync::Arc;
 use actix_web::{web, HttpResponse};
 
 use crate::auth::infrastructure::SupabaseAdminClient;
-use crate::common::{response::ApiResponse, types::{CurrentUser, Role}, validation::validate_password};
+use crate::common::{response::{ApiResponse, PaginatedResponse}, types::{CurrentUser, PaginationQuery, Role}, validation::validate_password};
 use crate::auth::presentation::handlers::require_role;
 use crate::owner::application::service::OwnerService;
 use super::dto::*;
@@ -10,10 +10,14 @@ use super::dto::*;
 pub async fn list_owners(
     user: CurrentUser,
     svc: web::Data<Arc<OwnerService>>,
+    pagination: web::Query<PaginationQuery>,
 ) -> Result<HttpResponse, crate::common::error::AppError> {
     require_role(&user, &[Role::SuperAdmin, Role::Accountant])?;
-    let owners: Vec<OwnerResponse> = svc.list().await?.into_iter().map(Into::into).collect();
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(owners)))
+    let (offset, limit) = pagination.offset_limit();
+    let page = pagination.page();
+    let (owners, total) = svc.list(limit, offset).await?;
+    let data: Vec<OwnerResponse> = owners.into_iter().map(Into::into).collect();
+    Ok(HttpResponse::Ok().json(PaginatedResponse::ok(data, page, limit, total)))
 }
 
 pub async fn get_owner(

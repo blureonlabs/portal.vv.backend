@@ -13,6 +13,8 @@ pub struct DateRangeQuery {
     pub driver_id: Option<Uuid>,
     pub from: Option<NaiveDate>,
     pub to: Option<NaiveDate>,
+    pub page: Option<i64>,
+    pub limit: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]

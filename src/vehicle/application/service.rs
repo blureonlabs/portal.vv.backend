@@ -20,8 +20,8 @@ impl VehicleService {
         Self { repo, audit }
     }
 
-    pub async fn list(&self) -> Result<Vec<Vehicle>, AppError> {
-        self.repo.list().await
+    pub async fn list(&self, limit: i64, offset: i64) -> Result<(Vec<Vehicle>, i64), AppError> {
+        self.repo.list(limit, offset).await
     }
 
     pub async fn get(&self, id: Uuid) -> Result<Vehicle, AppError> {

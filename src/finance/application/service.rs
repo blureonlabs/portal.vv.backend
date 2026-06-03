@@ -29,13 +29,15 @@ impl FinanceService {
         driver_id: Option<Uuid>,
         from: NaiveDate,
         to: NaiveDate,
-    ) -> Result<Vec<Expense>, AppError> {
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<Expense>, i64), AppError> {
         let effective = if *actor_role == Role::Driver {
             actor_driver_id
         } else {
             driver_id
         };
-        self.repo.list_expenses(effective, from, to).await
+        self.repo.list_expenses(effective, from, to, limit, offset).await
     }
 
     pub async fn create_expense(
@@ -78,13 +80,15 @@ impl FinanceService {
         driver_id: Option<Uuid>,
         from: NaiveDate,
         to: NaiveDate,
-    ) -> Result<Vec<CashHandover>, AppError> {
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<CashHandover>, i64), AppError> {
         let effective = if *actor_role == Role::Driver {
             actor_driver_id
         } else {
             driver_id
         };
-        self.repo.list_handovers(effective, from, to).await
+        self.repo.list_handovers(effective, from, to, limit, offset).await
     }
 
     pub async fn create_handover(

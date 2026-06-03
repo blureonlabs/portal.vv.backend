@@ -36,13 +36,15 @@ impl InvoiceService {
         actor_role: &Role,
         actor_driver_id: Option<Uuid>,
         driver_id: Option<Uuid>,
-    ) -> Result<Vec<Invoice>, AppError> {
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<Invoice>, i64), AppError> {
         let effective = if *actor_role == Role::Driver {
             actor_driver_id
         } else {
             driver_id
         };
-        self.repo.list(effective).await
+        self.repo.list(effective, limit, offset).await
     }
 
     pub async fn find_by_id(&self, id: Uuid) -> Result<Invoice, AppError> {

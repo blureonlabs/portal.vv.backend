@@ -16,18 +16,27 @@ impl PgOwnerRepository {
 
 #[async_trait]
 impl OwnerRepository for PgOwnerRepository {
-    async fn list(&self) -> Result<Vec<Owner>, AppError> {
+    async fn list(&self, limit: i64, offset: i64) -> Result<(Vec<Owner>, i64), AppError> {
+        let total: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM owners o JOIN profiles p ON p.id = o.profile_id"
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
         let rows = sqlx::query_as!(
             Owner,
             r#"SELECT o.id, o.profile_id, p.full_name, p.email,
                       p.phone, o.company_name, o.notes, o.is_active, o.created_at
                FROM owners o
                JOIN profiles p ON p.id = o.profile_id
-               ORDER BY p.full_name"#
+               ORDER BY p.full_name
+               LIMIT $1 OFFSET $2"#,
+            limit,
+            offset
         )
         .fetch_all(&self.pool)
         .await?;
-        Ok(rows)
+        Ok((rows, total.0))
     }
 
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Owner>, AppError> {

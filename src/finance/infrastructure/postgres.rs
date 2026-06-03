@@ -26,7 +26,20 @@ impl FinanceRepository for PgFinanceRepository {
         driver_id: Option<Uuid>,
         from: NaiveDate,
         to: NaiveDate,
-    ) -> Result<Vec<Expense>, AppError> {
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<Expense>, i64), AppError> {
+        let total: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM expenses e \
+             WHERE e.date BETWEEN $1 AND $2 \
+               AND ($3::uuid IS NULL OR e.driver_id = $3)"
+        )
+        .bind(from)
+        .bind(to)
+        .bind(driver_id)
+        .fetch_one(&self.pool)
+        .await?;
+
         let rows = sqlx::query_as!(
             Expense,
             r#"
@@ -44,15 +57,18 @@ impl FinanceRepository for PgFinanceRepository {
             WHERE e.date BETWEEN $2 AND $3
               AND ($1::uuid IS NULL OR e.driver_id = $1)
             ORDER BY e.date DESC, e.created_at DESC
+            LIMIT $4 OFFSET $5
             "#,
             driver_id as Option<Uuid>,
             from,
-            to
+            to,
+            limit,
+            offset
         )
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows)
+        Ok((rows, total.0))
     }
 
     async fn create_expense(&self, payload: CreateExpense) -> Result<Expense, AppError> {
@@ -95,7 +111,20 @@ impl FinanceRepository for PgFinanceRepository {
         driver_id: Option<Uuid>,
         from: NaiveDate,
         to: NaiveDate,
-    ) -> Result<Vec<CashHandover>, AppError> {
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<CashHandover>, i64), AppError> {
+        let total: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM cash_handovers h \
+             WHERE h.submitted_at::date BETWEEN $1 AND $2 \
+               AND ($3::uuid IS NULL OR h.driver_id = $3)"
+        )
+        .bind(from)
+        .bind(to)
+        .bind(driver_id)
+        .fetch_one(&self.pool)
+        .await?;
+
         let rows = sqlx::query_as!(
             CashHandover,
             r#"
@@ -113,15 +142,18 @@ impl FinanceRepository for PgFinanceRepository {
             WHERE h.submitted_at::date BETWEEN $2 AND $3
               AND ($1::uuid IS NULL OR h.driver_id = $1)
             ORDER BY h.submitted_at DESC
+            LIMIT $4 OFFSET $5
             "#,
             driver_id as Option<Uuid>,
             from,
-            to
+            to,
+            limit,
+            offset
         )
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows)
+        Ok((rows, total.0))
     }
 
     async fn create_handover(&self, payload: CreateHandover) -> Result<CashHandover, AppError> {

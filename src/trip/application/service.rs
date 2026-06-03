@@ -30,14 +30,16 @@ impl TripService {
         driver_id: Option<Uuid>,
         from: NaiveDate,
         to: NaiveDate,
-    ) -> Result<Vec<Trip>, AppError> {
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<Trip>, i64), AppError> {
         // Drivers can only see their own trips
         let effective_driver_id = if *actor_role == Role::Driver {
             actor_driver_id
         } else {
             driver_id
         };
-        self.repo.list(effective_driver_id, from, to).await
+        self.repo.list(effective_driver_id, from, to, limit, offset).await
     }
 
     pub async fn create(

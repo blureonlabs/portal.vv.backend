@@ -43,15 +43,22 @@ impl AuthRepository for PgAuthRepository {
         Ok(profile)
     }
 
-    async fn list_profiles(&self) -> Result<Vec<Profile>, AppError> {
+    async fn list_profiles(&self, limit: i64, offset: i64) -> Result<(Vec<Profile>, i64), AppError> {
+        let total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM profiles")
+            .fetch_one(&self.pool)
+            .await?;
+
         let profiles = sqlx::query_as!(
             Profile,
             r#"SELECT id, role as "role: Role", full_name, email, is_active, avatar_url, invited_by, created_at
-               FROM profiles ORDER BY created_at DESC"#
+               FROM profiles ORDER BY created_at DESC
+               LIMIT $1 OFFSET $2"#,
+            limit,
+            offset
         )
         .fetch_all(&self.pool)
         .await?;
-        Ok(profiles)
+        Ok((profiles, total.0))
     }
 
     async fn insert_profile(&self, id: Uuid, role: Role, full_name: &str, email: &str, invited_by: Option<Uuid>) -> Result<Profile, AppError> {

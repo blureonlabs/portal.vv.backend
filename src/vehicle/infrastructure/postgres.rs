@@ -21,7 +21,11 @@ impl PgVehicleRepository {
 
 #[async_trait]
 impl VehicleRepository for PgVehicleRepository {
-    async fn list(&self) -> Result<Vec<Vehicle>, AppError> {
+    async fn list(&self, limit: i64, offset: i64) -> Result<(Vec<Vehicle>, i64), AppError> {
+        let total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM vehicles")
+            .fetch_one(&self.pool)
+            .await?;
+
         let rows = sqlx::query_as!(
             Vehicle,
             r#"SELECT v.id, v.plate_number, v.make, v.model, v.year, v.color,
@@ -33,11 +37,14 @@ impl VehicleRepository for PgVehicleRepository {
                LEFT JOIN vehicle_assignments va ON va.vehicle_id = v.id AND va.unassigned_at IS NULL
                LEFT JOIN drivers d ON d.id = va.driver_id
                LEFT JOIN profiles p ON p.id = d.profile_id
-               ORDER BY v.plate_number"#
+               ORDER BY v.plate_number
+               LIMIT $1 OFFSET $2"#,
+            limit,
+            offset
         )
         .fetch_all(&self.pool)
         .await?;
-        Ok(rows)
+        Ok((rows, total.0))
     }
 
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Vehicle>, AppError> {

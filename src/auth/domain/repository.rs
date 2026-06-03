@@ -7,7 +7,7 @@ use super::entity::{Invite, InviteStatus, Profile};
 pub trait AuthRepository: Send + Sync {
     async fn find_profile_by_id(&self, id: Uuid) -> Result<Option<Profile>, AppError>;
     async fn find_profile_by_email(&self, email: &str) -> Result<Option<Profile>, AppError>;
-    async fn list_profiles(&self) -> Result<Vec<Profile>, AppError>;
+    async fn list_profiles(&self, limit: i64, offset: i64) -> Result<(Vec<Profile>, i64), AppError>;
     async fn insert_profile(&self, id: Uuid, role: Role, full_name: &str, email: &str, invited_by: Option<Uuid>) -> Result<Profile, AppError>;
     async fn create_profile(&self, id: Uuid, full_name: &str, email: &str, role: &Role, phone: Option<&str>) -> Result<(), AppError>;
 

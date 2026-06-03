@@ -132,7 +132,17 @@ const SELECT_FIELDS: &str = r#"
 
 #[async_trait]
 impl SalaryRepository for PgSalaryRepository {
-    async fn list(&self, driver_id: Option<Uuid>, month: Option<NaiveDate>) -> Result<Vec<Salary>, AppError> {
+    async fn list(&self, driver_id: Option<Uuid>, month: Option<NaiveDate>, limit: i64, offset: i64) -> Result<(Vec<Salary>, i64), AppError> {
+        let total: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM salaries s \
+             WHERE ($1::uuid IS NULL OR s.driver_id = $1) \
+               AND ($2::date IS NULL OR s.period_month = $2)"
+        )
+        .bind(driver_id)
+        .bind(month)
+        .fetch_one(&self.pool)
+        .await?;
+
         let rows = sqlx::query_as::<_, SalaryRow>(&format!(
             "SELECT {} FROM salaries s \
              JOIN drivers d ON d.id = s.driver_id \
@@ -140,15 +150,18 @@ impl SalaryRepository for PgSalaryRepository {
              JOIN profiles pg ON pg.id = s.generated_by \
              WHERE ($1::uuid IS NULL OR s.driver_id = $1) \
                AND ($2::date IS NULL OR s.period_month = $2) \
-             ORDER BY s.period_month DESC, pd.full_name",
+             ORDER BY s.period_month DESC, pd.full_name \
+             LIMIT $3 OFFSET $4",
             SELECT_FIELDS
         ))
         .bind(driver_id)
         .bind(month)
+        .bind(limit)
+        .bind(offset)
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(row_to_salary).collect())
+        Ok((rows.into_iter().map(row_to_salary).collect(), total.0))
     }
 
     async fn find_by_id(&self, id: Uuid) -> Result<Salary, AppError> {

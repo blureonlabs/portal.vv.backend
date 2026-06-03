@@ -27,7 +27,21 @@ impl TripRepository for PgTripRepository {
         driver_id: Option<Uuid>,
         from: NaiveDate,
         to: NaiveDate,
-    ) -> Result<Vec<Trip>, AppError> {
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<Trip>, i64), AppError> {
+        let total: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM trips t \
+             WHERE t.is_deleted = false \
+               AND t.trip_date BETWEEN $1 AND $2 \
+               AND ($3::uuid IS NULL OR t.driver_id = $3)"
+        )
+        .bind(from)
+        .bind(to)
+        .bind(driver_id)
+        .fetch_one(&self.pool)
+        .await?;
+
         let rows = sqlx::query_as!(
             Trip,
             r#"
@@ -46,15 +60,18 @@ impl TripRepository for PgTripRepository {
               AND t.trip_date BETWEEN $2 AND $3
               AND ($1::uuid IS NULL OR t.driver_id = $1)
             ORDER BY t.trip_date DESC, t.created_at DESC
+            LIMIT $4 OFFSET $5
             "#,
             driver_id as Option<Uuid>,
             from,
-            to
+            to,
+            limit,
+            offset
         )
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows)
+        Ok((rows, total.0))
     }
 
     async fn find_by_id(&self, id: Uuid) -> Result<Trip, AppError> {

@@ -12,7 +12,9 @@ pub trait HrRepository: Send + Sync {
         driver_id: Option<Uuid>,
         status: Option<LeaveStatus>,
         leave_type: Option<LeaveType>,
-    ) -> Result<Vec<LeaveRequest>, AppError>;
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<LeaveRequest>, i64), AppError>;
 
     async fn find_by_id(&self, id: Uuid) -> Result<LeaveRequest, AppError>;
 

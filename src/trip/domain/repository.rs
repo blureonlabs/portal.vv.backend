@@ -13,7 +13,9 @@ pub trait TripRepository: Send + Sync {
         driver_id: Option<Uuid>,
         from: NaiveDate,
         to: NaiveDate,
-    ) -> Result<Vec<Trip>, AppError>;
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<Trip>, i64), AppError>;
 
     #[allow(dead_code)]
     async fn find_by_id(&self, id: Uuid) -> Result<Trip, AppError>;

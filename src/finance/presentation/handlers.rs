@@ -4,7 +4,7 @@ use actix_web::{web, HttpResponse};
 use chrono::{Datelike, Local};
 use uuid::Uuid;
 
-use crate::common::{error::AppError, response::ApiResponse, types::CurrentUser};
+use crate::common::{error::AppError, response::{ApiResponse, PaginatedResponse}, types::CurrentUser};
 use crate::finance::application::service::FinanceService;
 use crate::finance::presentation::dto::{
     CreateExpenseRequest, CreateHandoverRequest, DateRangeQuery, ExpenseResponse, HandoverResponse,
@@ -35,10 +35,14 @@ pub async fn list_expenses(
     });
     let to = query.to.unwrap_or(today);
 
+    let limit = query.limit.unwrap_or(20).min(100).max(1);
+    let page = query.page.unwrap_or(1).max(1);
+    let offset = (page - 1) * limit;
+
     let actor_driver_id = resolve_driver_id_for_actor(db.pg_pool(), user.id).await?;
-    let expenses = svc.list_expenses(&user.role, actor_driver_id, query.driver_id, from, to).await?;
+    let (expenses, total) = svc.list_expenses(&user.role, actor_driver_id, query.driver_id, from, to, limit, offset).await?;
     let resp: Vec<ExpenseResponse> = expenses.into_iter().map(ExpenseResponse::from).collect();
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(resp)))
+    Ok(HttpResponse::Ok().json(PaginatedResponse::ok(resp, page, limit, total)))
 }
 
 pub async fn create_expense(
@@ -75,10 +79,14 @@ pub async fn list_handovers(
     });
     let to = query.to.unwrap_or(today);
 
+    let limit = query.limit.unwrap_or(20).min(100).max(1);
+    let page = query.page.unwrap_or(1).max(1);
+    let offset = (page - 1) * limit;
+
     let actor_driver_id = resolve_driver_id_for_actor(db.pg_pool(), user.id).await?;
-    let handovers = svc.list_handovers(&user.role, actor_driver_id, query.driver_id, from, to).await?;
+    let (handovers, total) = svc.list_handovers(&user.role, actor_driver_id, query.driver_id, from, to, limit, offset).await?;
     let resp: Vec<HandoverResponse> = handovers.into_iter().map(HandoverResponse::from).collect();
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(resp)))
+    Ok(HttpResponse::Ok().json(PaginatedResponse::ok(resp, page, limit, total)))
 }
 
 pub async fn create_handover(

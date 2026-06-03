@@ -21,7 +21,13 @@ impl PgDriverRepository {
 
 #[async_trait]
 impl DriverRepository for PgDriverRepository {
-    async fn list(&self) -> Result<Vec<Driver>, AppError> {
+    async fn list(&self, limit: i64, offset: i64) -> Result<(Vec<Driver>, i64), AppError> {
+        let total: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM drivers d JOIN profiles p ON p.id = d.profile_id"
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
         let rows = sqlx::query_as!(
             Driver,
             r#"SELECT d.id, d.profile_id, p.full_name, p.email,
@@ -32,11 +38,14 @@ impl DriverRepository for PgDriverRepository {
                       d.created_at
                FROM drivers d
                JOIN profiles p ON p.id = d.profile_id
-               ORDER BY p.full_name"#
+               ORDER BY p.full_name
+               LIMIT $1 OFFSET $2"#,
+            limit,
+            offset
         )
         .fetch_all(&self.pool)
         .await?;
-        Ok(rows)
+        Ok((rows, total.0))
     }
 
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Driver>, AppError> {

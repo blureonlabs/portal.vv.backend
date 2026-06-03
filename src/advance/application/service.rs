@@ -27,14 +27,16 @@ impl AdvanceService {
         actor_driver_id: Option<Uuid>,
         driver_id: Option<Uuid>,
         status: Option<AdvanceStatus>,
-    ) -> Result<Vec<Advance>, AppError> {
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<Advance>, i64), AppError> {
         // Drivers see only their own advances
         let effective_driver_id = if *actor_role == Role::Driver {
             actor_driver_id
         } else {
             driver_id
         };
-        self.repo.list(effective_driver_id, status).await
+        self.repo.list(effective_driver_id, status, limit, offset).await
     }
 
     pub async fn request(

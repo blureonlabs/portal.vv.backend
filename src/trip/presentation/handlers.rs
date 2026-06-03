@@ -41,15 +41,11 @@ pub async fn list_trips(
     let offset = (page - 1) * limit;
 
     let actor_driver_id = resolve_driver_id(&svc, &user).await?;
-    let all: Vec<TripResponse> = svc
-        .list(&user.role, actor_driver_id, query.driver_id, from, to)
-        .await?
-        .into_iter()
-        .map(TripResponse::from)
-        .collect();
-    let total = all.len() as i64;
-    let page_data = all.into_iter().skip(offset as usize).take(limit as usize).collect::<Vec<_>>();
-    Ok(HttpResponse::Ok().json(PaginatedResponse::ok(page_data, page, limit, total)))
+    let (trips, total) = svc
+        .list(&user.role, actor_driver_id, query.driver_id, from, to, limit, offset)
+        .await?;
+    let data: Vec<TripResponse> = trips.into_iter().map(TripResponse::from).collect();
+    Ok(HttpResponse::Ok().json(PaginatedResponse::ok(data, page, limit, total)))
 }
 
 pub async fn create_trip(
@@ -230,7 +226,8 @@ pub async fn export_csv(
     });
     let to = query.to.unwrap_or(today);
 
-    let trips = svc.list(&user.role, None, query.driver_id, from, to).await?;
+    // Export all matching rows — no pagination for CSV export
+    let (trips, _total) = svc.list(&user.role, None, query.driver_id, from, to, i64::MAX, 0).await?;
 
     let mut csv = String::from("Date,Driver,Cash,Uber Cash,Bolt Cash,Card,Total,Source,Notes\n");
     for t in &trips {

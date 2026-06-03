@@ -16,12 +16,11 @@ pub async fn list_vehicles(
     pagination: web::Query<PaginationQuery>,
 ) -> Result<HttpResponse, AppError> {
     require_role(&user, &[Role::SuperAdmin, Role::Accountant, Role::Hr])?;
-    let all: Vec<VehicleResponse> = svc.list().await?.into_iter().map(VehicleResponse::from).collect();
-    let total = all.len() as i64;
     let (offset, limit) = pagination.offset_limit();
     let page = pagination.page();
-    let page_data = all.into_iter().skip(offset as usize).take(limit as usize).collect::<Vec<_>>();
-    Ok(HttpResponse::Ok().json(PaginatedResponse::ok(page_data, page, limit, total)))
+    let (vehicles, total) = svc.list(limit, offset).await?;
+    let data: Vec<VehicleResponse> = vehicles.into_iter().map(VehicleResponse::from).collect();
+    Ok(HttpResponse::Ok().json(PaginatedResponse::ok(data, page, limit, total)))
 }
 
 pub async fn get_vehicle(

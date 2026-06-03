@@ -7,7 +7,7 @@ use super::entity::{CreateInvoice, Invoice};
 
 #[async_trait]
 pub trait InvoiceRepository: Send + Sync {
-    async fn list(&self, driver_id: Option<Uuid>) -> Result<Vec<Invoice>, AppError>;
+    async fn list(&self, driver_id: Option<Uuid>, limit: i64, offset: i64) -> Result<(Vec<Invoice>, i64), AppError>;
     async fn find_by_id(&self, id: Uuid) -> Result<Invoice, AppError>;
     async fn create(&self, payload: CreateInvoice) -> Result<Invoice, AppError>;
     /// Returns the next sequential number for invoices in the given period month.

@@ -8,7 +8,7 @@ use super::entity::{Driver, DriverEdit};
 
 #[async_trait]
 pub trait DriverRepository: Send + Sync {
-    async fn list(&self) -> Result<Vec<Driver>, AppError>;
+    async fn list(&self, limit: i64, offset: i64) -> Result<(Vec<Driver>, i64), AppError>;
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Driver>, AppError>;
     async fn find_by_profile_id(&self, profile_id: Uuid) -> Result<Option<Driver>, AppError>;
     async fn create(&self, profile_id: Uuid, nationality: &str, salary_type: SalaryType, room_rent_aed: Decimal, commission_rate: Option<Decimal>, joining_date: Option<NaiveDate>, license_number: Option<&str>) -> Result<Driver, AppError>;

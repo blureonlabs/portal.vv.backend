@@ -12,7 +12,9 @@ pub trait FinanceRepository: Send + Sync {
         driver_id: Option<Uuid>,
         from: NaiveDate,
         to: NaiveDate,
-    ) -> Result<Vec<Expense>, AppError>;
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<Expense>, i64), AppError>;
 
     async fn create_expense(&self, payload: CreateExpense) -> Result<Expense, AppError>;
 
@@ -21,7 +23,9 @@ pub trait FinanceRepository: Send + Sync {
         driver_id: Option<Uuid>,
         from: NaiveDate,
         to: NaiveDate,
-    ) -> Result<Vec<CashHandover>, AppError>;
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<CashHandover>, i64), AppError>;
 
     async fn create_handover(&self, payload: CreateHandover) -> Result<CashHandover, AppError>;
 }

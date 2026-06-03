@@ -39,6 +39,8 @@ pub struct ListSalaryQuery {
     pub driver_id: Option<Uuid>,
     /// "YYYY-MM"
     pub month: Option<String>,
+    pub page: Option<i64>,
+    pub limit: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]

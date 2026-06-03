@@ -56,7 +56,15 @@ fn row_to_invoice(r: InvoiceRow) -> Result<Invoice, AppError> {
 
 #[async_trait]
 impl InvoiceRepository for PgInvoiceRepository {
-    async fn list(&self, driver_id: Option<Uuid>) -> Result<Vec<Invoice>, AppError> {
+    async fn list(&self, driver_id: Option<Uuid>, limit: i64, offset: i64) -> Result<(Vec<Invoice>, i64), AppError> {
+        let total: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM invoices i \
+             WHERE ($1::uuid IS NULL OR i.driver_id = $1)"
+        )
+        .bind(driver_id)
+        .fetch_one(&self.pool)
+        .await?;
+
         let rows = sqlx::query_as!(
             InvoiceRow,
             r#"
@@ -77,13 +85,17 @@ impl InvoiceRepository for PgInvoiceRepository {
             JOIN profiles pg ON pg.id = i.generated_by
             WHERE ($1::uuid IS NULL OR i.driver_id = $1)
             ORDER BY i.created_at DESC
+            LIMIT $2 OFFSET $3
             "#,
-            driver_id as Option<Uuid>
+            driver_id as Option<Uuid>,
+            limit,
+            offset
         )
         .fetch_all(&self.pool)
         .await?;
 
-        rows.into_iter().map(row_to_invoice).collect()
+        let invoices: Result<Vec<Invoice>, AppError> = rows.into_iter().map(row_to_invoice).collect();
+        Ok((invoices?, total.0))
     }
 
     async fn find_by_id(&self, id: Uuid) -> Result<Invoice, AppError> {

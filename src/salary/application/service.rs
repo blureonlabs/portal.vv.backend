@@ -39,8 +39,10 @@ impl SalaryService {
         &self,
         driver_id: Option<Uuid>,
         month: Option<NaiveDate>,
-    ) -> Result<Vec<Salary>, AppError> {
-        self.repo.list(driver_id, month).await
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<Salary>, i64), AppError> {
+        self.repo.list(driver_id, month, limit, offset).await
     }
 
     pub async fn get(&self, id: Uuid) -> Result<Salary, AppError> {

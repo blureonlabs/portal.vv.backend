@@ -26,7 +26,19 @@ impl AdvanceRepository for PgAdvanceRepository {
         &self,
         driver_id: Option<Uuid>,
         status: Option<AdvanceStatus>,
-    ) -> Result<Vec<Advance>, AppError> {
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<Advance>, i64), AppError> {
+        let total: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM advances a \
+             WHERE ($1::uuid IS NULL OR a.driver_id = $1) \
+               AND ($2::advance_status IS NULL OR a.status = $2)"
+        )
+        .bind(driver_id)
+        .bind(status.clone())
+        .fetch_one(&self.pool)
+        .await?;
+
         let rows = sqlx::query_as!(
             Advance,
             r#"
@@ -52,14 +64,17 @@ impl AdvanceRepository for PgAdvanceRepository {
             WHERE ($1::uuid IS NULL OR a.driver_id = $1)
               AND ($2::advance_status IS NULL OR a.status = $2)
             ORDER BY a.created_at DESC
+            LIMIT $3 OFFSET $4
             "#,
             driver_id as Option<Uuid>,
-            status as Option<AdvanceStatus>
+            status as Option<AdvanceStatus>,
+            limit,
+            offset
         )
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows)
+        Ok((rows, total.0))
     }
 
     async fn find_by_id(&self, id: Uuid) -> Result<Advance, AppError> {

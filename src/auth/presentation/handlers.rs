@@ -15,8 +15,8 @@ use crate::auth::presentation::dto::{
 };
 use crate::common::{
     error::AppError,
-    response::ApiResponse,
-    types::{CurrentUser, Role},
+    response::{ApiResponse, PaginatedResponse},
+    types::{CurrentUser, PaginationQuery, Role},
     validation::validate_password,
 };
 
@@ -132,12 +132,15 @@ pub async fn me(
 pub async fn list_users(
     user: CurrentUser,
     svc: web::Data<Arc<AuthService>>,
+    pagination: web::Query<PaginationQuery>,
 ) -> Result<HttpResponse, AppError> {
     require_role(&user, &[Role::SuperAdmin])?;
 
-    let profiles = svc.repo.list_profiles().await?;
+    let (offset, limit) = pagination.offset_limit();
+    let page = pagination.page();
+    let (profiles, total) = svc.repo.list_profiles(limit, offset).await?;
     let data: Vec<UserResponse> = profiles.into_iter().map(UserResponse::from).collect();
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(data)))
+    Ok(HttpResponse::Ok().json(PaginatedResponse::ok(data, page, limit, total)))
 }
 
 pub async fn list_invites(

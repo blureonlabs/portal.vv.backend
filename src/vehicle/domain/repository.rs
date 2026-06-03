@@ -8,7 +8,7 @@ use super::entity::{Vehicle, VehicleAssignment, VehicleServiceRecord};
 
 #[async_trait]
 pub trait VehicleRepository: Send + Sync {
-    async fn list(&self) -> Result<Vec<Vehicle>, AppError>;
+    async fn list(&self, limit: i64, offset: i64) -> Result<(Vec<Vehicle>, i64), AppError>;
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Vehicle>, AppError>;
     async fn create(
         &self,

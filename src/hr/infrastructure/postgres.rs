@@ -26,7 +26,21 @@ impl HrRepository for PgHrRepository {
         driver_id: Option<Uuid>,
         status: Option<LeaveStatus>,
         leave_type: Option<LeaveType>,
-    ) -> Result<Vec<LeaveRequest>, AppError> {
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<LeaveRequest>, i64), AppError> {
+        let total: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM leave_requests lr \
+             WHERE ($1::uuid IS NULL OR lr.driver_id = $1) \
+               AND ($2::leave_status IS NULL OR lr.status = $2) \
+               AND ($3::leave_type IS NULL OR lr.type = $3)"
+        )
+        .bind(driver_id)
+        .bind(status.clone())
+        .bind(leave_type.clone())
+        .fetch_one(&self.pool)
+        .await?;
+
         let rows = sqlx::query_as!(
             LeaveRequest,
             r#"
@@ -48,15 +62,18 @@ impl HrRepository for PgHrRepository {
               AND ($2::leave_status IS NULL OR lr.status = $2)
               AND ($3::leave_type IS NULL OR lr.type = $3)
             ORDER BY lr.created_at DESC
+            LIMIT $4 OFFSET $5
             "#,
             driver_id as Option<Uuid>,
             status as Option<LeaveStatus>,
-            leave_type as Option<LeaveType>
+            leave_type as Option<LeaveType>,
+            limit,
+            offset
         )
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows)
+        Ok((rows, total.0))
     }
 
     async fn find_by_id(&self, id: Uuid) -> Result<LeaveRequest, AppError> {

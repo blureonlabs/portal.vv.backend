@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::common::{
     error::AppError,
-    response::ApiResponse,
+    response::{ApiResponse, PaginatedResponse},
     types::{CurrentUser, Role},
 };
 use crate::driver::application::service::DriverService;
@@ -84,9 +84,12 @@ pub async fn list_salaries(
 ) -> Result<HttpResponse, AppError> {
     require_admin(&user)?;
     let month = query.month.as_deref().map(parse_month).transpose()?;
-    let salaries = svc.list(query.driver_id, month).await?;
+    let limit = query.limit.unwrap_or(20).min(100).max(1);
+    let page = query.page.unwrap_or(1).max(1);
+    let offset = (page - 1) * limit;
+    let (salaries, total) = svc.list(query.driver_id, month, limit, offset).await?;
     let resp: Vec<SalaryResponse> = salaries.into_iter().map(Into::into).collect();
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(resp)))
+    Ok(HttpResponse::Ok().json(PaginatedResponse::ok(resp, page, limit, total)))
 }
 
 pub async fn get_salary(

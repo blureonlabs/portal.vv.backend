@@ -41,15 +41,11 @@ pub async fn list_leave(
     let page = query.page.unwrap_or(1).max(1);
     let offset = (page - 1) * limit;
     let actor_driver_id = resolve_driver_id(db.pg_pool(), user.id).await?;
-    let all: Vec<LeaveResponse> = svc
-        .list(&user.role, actor_driver_id, query.driver_id, query.status.clone(), query.leave_type.clone())
-        .await?
-        .into_iter()
-        .map(LeaveResponse::from)
-        .collect();
-    let total = all.len() as i64;
-    let page_data = all.into_iter().skip(offset as usize).take(limit as usize).collect::<Vec<_>>();
-    Ok(HttpResponse::Ok().json(PaginatedResponse::ok(page_data, page, limit, total)))
+    let (leaves, total) = svc
+        .list(&user.role, actor_driver_id, query.driver_id, query.status.clone(), query.leave_type.clone(), limit, offset)
+        .await?;
+    let data: Vec<LeaveResponse> = leaves.into_iter().map(LeaveResponse::from).collect();
+    Ok(HttpResponse::Ok().json(PaginatedResponse::ok(data, page, limit, total)))
 }
 
 pub async fn submit_leave(
