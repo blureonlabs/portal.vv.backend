@@ -26,22 +26,21 @@ impl VehicleRepository for PgVehicleRepository {
             .fetch_one(&self.pool)
             .await?;
 
-        let rows = sqlx::query_as!(
-            Vehicle,
-            r#"SELECT v.id, v.plate_number, v.make, v.model, v.year, v.color,
-                      v.registration_date, v.registration_expiry, v.insurance_expiry,
-                      v.status as "status: VehicleStatus", v.is_active, v.created_at,
-                      va.driver_id as assigned_driver_id,
-                      p.full_name as assigned_driver_name
-               FROM vehicles v
-               LEFT JOIN vehicle_assignments va ON va.vehicle_id = v.id AND va.unassigned_at IS NULL
-               LEFT JOIN drivers d ON d.id = va.driver_id
-               LEFT JOIN profiles p ON p.id = d.profile_id
-               ORDER BY v.plate_number
-               LIMIT $1 OFFSET $2"#,
-            limit,
-            offset
+        let rows = sqlx::query_as::<_, Vehicle>(
+            "SELECT v.id, v.plate_number, v.make, v.model, v.year, v.color, \
+                    v.registration_date, v.registration_expiry, v.insurance_expiry, \
+                    v.status AS \"status: VehicleStatus\", v.is_active, v.created_at, \
+                    va.driver_id AS assigned_driver_id, \
+                    p.full_name AS assigned_driver_name \
+             FROM vehicles v \
+             LEFT JOIN vehicle_assignments va ON va.vehicle_id = v.id AND va.unassigned_at IS NULL \
+             LEFT JOIN drivers d ON d.id = va.driver_id \
+             LEFT JOIN profiles p ON p.id = d.profile_id \
+             ORDER BY v.plate_number \
+             LIMIT $1 OFFSET $2"
         )
+        .bind(limit)
+        .bind(offset)
         .fetch_all(&self.pool)
         .await?;
         Ok((rows, total.0))
