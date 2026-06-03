@@ -19,7 +19,7 @@ pub enum LeaveStatus {
     Rejected,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct LeaveRequest {
     pub id: Uuid,
     pub driver_id: Uuid,

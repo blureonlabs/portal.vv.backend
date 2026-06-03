@@ -15,7 +15,7 @@ pub enum ExpenseCategory {
     Other,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
 pub struct Expense {
     pub id: Uuid,
     pub driver_id: Option<Uuid>,

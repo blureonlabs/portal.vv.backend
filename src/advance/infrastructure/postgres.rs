@@ -39,38 +39,35 @@ impl AdvanceRepository for PgAdvanceRepository {
         .fetch_one(&self.pool)
         .await?;
 
-        let rows = sqlx::query_as!(
-            Advance,
-            r#"
-            SELECT
-                a.id, a.driver_id,
-                p.full_name AS driver_name,
-                a.amount_aed,
-                a.reason,
-                a.status AS "status: AdvanceStatus",
-                a.rejection_reason,
-                a.payment_date,
-                a.method AS "method: PaymentMethod",
-                a.carry_forward_aed,
-                a.salary_period,
-                a.actioned_by,
-                pa.full_name AS actioned_by_name,
-                a.created_at,
-                a.updated_at
-            FROM advances a
-            JOIN drivers d ON d.id = a.driver_id
-            JOIN profiles p ON p.id = d.profile_id
-            LEFT JOIN profiles pa ON pa.id = a.actioned_by
-            WHERE ($1::uuid IS NULL OR a.driver_id = $1)
-              AND ($2::advance_status IS NULL OR a.status = $2)
-            ORDER BY a.created_at DESC
-            LIMIT $3 OFFSET $4
-            "#,
-            driver_id as Option<Uuid>,
-            status as Option<AdvanceStatus>,
-            limit,
-            offset
+        let rows = sqlx::query_as::<_, Advance>(
+            "SELECT \
+                a.id, a.driver_id, \
+                p.full_name AS driver_name, \
+                a.amount_aed, \
+                a.reason, \
+                a.status, \
+                a.rejection_reason, \
+                a.payment_date, \
+                a.method, \
+                a.carry_forward_aed, \
+                a.salary_period, \
+                a.actioned_by, \
+                pa.full_name AS actioned_by_name, \
+                a.created_at, \
+                a.updated_at \
+            FROM advances a \
+            JOIN drivers d ON d.id = a.driver_id \
+            JOIN profiles p ON p.id = d.profile_id \
+            LEFT JOIN profiles pa ON pa.id = a.actioned_by \
+            WHERE ($1::uuid IS NULL OR a.driver_id = $1) \
+              AND ($2::advance_status IS NULL OR a.status = $2) \
+            ORDER BY a.created_at DESC \
+            LIMIT $3 OFFSET $4"
         )
+        .bind(driver_id)
+        .bind(status)
+        .bind(limit)
+        .bind(offset)
         .fetch_all(&self.pool)
         .await?;
 
@@ -78,32 +75,29 @@ impl AdvanceRepository for PgAdvanceRepository {
     }
 
     async fn find_by_id(&self, id: Uuid) -> Result<Advance, AppError> {
-        let row = sqlx::query_as!(
-            Advance,
-            r#"
-            SELECT
-                a.id, a.driver_id,
-                p.full_name AS driver_name,
-                a.amount_aed,
-                a.reason,
-                a.status AS "status: AdvanceStatus",
-                a.rejection_reason,
-                a.payment_date,
-                a.method AS "method: PaymentMethod",
-                a.carry_forward_aed,
-                a.salary_period,
-                a.actioned_by,
-                pa.full_name AS actioned_by_name,
-                a.created_at,
-                a.updated_at
-            FROM advances a
-            JOIN drivers d ON d.id = a.driver_id
-            JOIN profiles p ON p.id = d.profile_id
-            LEFT JOIN profiles pa ON pa.id = a.actioned_by
-            WHERE a.id = $1
-            "#,
-            id
+        let row = sqlx::query_as::<_, Advance>(
+            "SELECT \
+                a.id, a.driver_id, \
+                p.full_name AS driver_name, \
+                a.amount_aed, \
+                a.reason, \
+                a.status, \
+                a.rejection_reason, \
+                a.payment_date, \
+                a.method, \
+                a.carry_forward_aed, \
+                a.salary_period, \
+                a.actioned_by, \
+                pa.full_name AS actioned_by_name, \
+                a.created_at, \
+                a.updated_at \
+            FROM advances a \
+            JOIN drivers d ON d.id = a.driver_id \
+            JOIN profiles p ON p.id = d.profile_id \
+            LEFT JOIN profiles pa ON pa.id = a.actioned_by \
+            WHERE a.id = $1"
         )
+        .bind(id)
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| AppError::NotFound("Advance not found".into()))?;
@@ -112,38 +106,35 @@ impl AdvanceRepository for PgAdvanceRepository {
     }
 
     async fn create(&self, payload: CreateAdvance) -> Result<Advance, AppError> {
-        let row = sqlx::query_as!(
-            Advance,
-            r#"
-            WITH ins AS (
-                INSERT INTO advances (driver_id, amount_aed, reason)
-                VALUES ($1, $2, $3)
-                RETURNING *
-            )
-            SELECT
-                ins.id, ins.driver_id,
-                p.full_name AS driver_name,
-                ins.amount_aed,
-                ins.reason,
-                ins.status AS "status: AdvanceStatus",
-                ins.rejection_reason,
-                ins.payment_date,
-                ins.method AS "method: PaymentMethod",
-                ins.carry_forward_aed,
-                ins.salary_period,
-                ins.actioned_by,
-                pa.full_name AS actioned_by_name,
-                ins.created_at,
-                ins.updated_at
-            FROM ins
-            JOIN drivers d ON d.id = ins.driver_id
-            JOIN profiles p ON p.id = d.profile_id
-            LEFT JOIN profiles pa ON pa.id = ins.actioned_by
-            "#,
-            payload.driver_id,
-            payload.amount_aed,
-            payload.reason
+        let row = sqlx::query_as::<_, Advance>(
+            "WITH ins AS ( \
+                INSERT INTO advances (driver_id, amount_aed, reason) \
+                VALUES ($1, $2, $3) \
+                RETURNING * \
+            ) \
+            SELECT \
+                ins.id, ins.driver_id, \
+                p.full_name AS driver_name, \
+                ins.amount_aed, \
+                ins.reason, \
+                ins.status, \
+                ins.rejection_reason, \
+                ins.payment_date, \
+                ins.method, \
+                ins.carry_forward_aed, \
+                ins.salary_period, \
+                ins.actioned_by, \
+                pa.full_name AS actioned_by_name, \
+                ins.created_at, \
+                ins.updated_at \
+            FROM ins \
+            JOIN drivers d ON d.id = ins.driver_id \
+            JOIN profiles p ON p.id = d.profile_id \
+            LEFT JOIN profiles pa ON pa.id = ins.actioned_by"
         )
+        .bind(payload.driver_id)
+        .bind(payload.amount_aed)
+        .bind(payload.reason)
         .fetch_one(&self.pool)
         .await?;
 
@@ -151,38 +142,35 @@ impl AdvanceRepository for PgAdvanceRepository {
     }
 
     async fn approve(&self, payload: ApproveAdvance) -> Result<Advance, AppError> {
-        let row = sqlx::query_as!(
-            Advance,
-            r#"
-            WITH upd AS (
-                UPDATE advances
-                SET status = 'approved', actioned_by = $2, updated_at = NOW()
-                WHERE id = $1 AND status = 'pending'
-                RETURNING *
-            )
-            SELECT
-                upd.id, upd.driver_id,
-                p.full_name AS driver_name,
-                upd.amount_aed,
-                upd.reason,
-                upd.status AS "status: AdvanceStatus",
-                upd.rejection_reason,
-                upd.payment_date,
-                upd.method AS "method: PaymentMethod",
-                upd.carry_forward_aed,
-                upd.salary_period,
-                upd.actioned_by,
-                pa.full_name AS actioned_by_name,
-                upd.created_at,
-                upd.updated_at
-            FROM upd
-            JOIN drivers d ON d.id = upd.driver_id
-            JOIN profiles p ON p.id = d.profile_id
-            LEFT JOIN profiles pa ON pa.id = upd.actioned_by
-            "#,
-            payload.id,
-            payload.actioned_by
+        let row = sqlx::query_as::<_, Advance>(
+            "WITH upd AS ( \
+                UPDATE advances \
+                SET status = 'approved', actioned_by = $2, updated_at = NOW() \
+                WHERE id = $1 AND status = 'pending' \
+                RETURNING * \
+            ) \
+            SELECT \
+                upd.id, upd.driver_id, \
+                p.full_name AS driver_name, \
+                upd.amount_aed, \
+                upd.reason, \
+                upd.status, \
+                upd.rejection_reason, \
+                upd.payment_date, \
+                upd.method, \
+                upd.carry_forward_aed, \
+                upd.salary_period, \
+                upd.actioned_by, \
+                pa.full_name AS actioned_by_name, \
+                upd.created_at, \
+                upd.updated_at \
+            FROM upd \
+            JOIN drivers d ON d.id = upd.driver_id \
+            JOIN profiles p ON p.id = d.profile_id \
+            LEFT JOIN profiles pa ON pa.id = upd.actioned_by"
         )
+        .bind(payload.id)
+        .bind(payload.actioned_by)
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| AppError::BadRequest("Advance not found or not in pending state".into()))?;
@@ -191,42 +179,39 @@ impl AdvanceRepository for PgAdvanceRepository {
     }
 
     async fn reject(&self, payload: RejectAdvance) -> Result<Advance, AppError> {
-        let row = sqlx::query_as!(
-            Advance,
-            r#"
-            WITH upd AS (
-                UPDATE advances
-                SET status = 'rejected',
-                    rejection_reason = $3,
-                    actioned_by = $2,
-                    updated_at = NOW()
-                WHERE id = $1 AND status = 'pending'
-                RETURNING *
-            )
-            SELECT
-                upd.id, upd.driver_id,
-                p.full_name AS driver_name,
-                upd.amount_aed,
-                upd.reason,
-                upd.status AS "status: AdvanceStatus",
-                upd.rejection_reason,
-                upd.payment_date,
-                upd.method AS "method: PaymentMethod",
-                upd.carry_forward_aed,
-                upd.salary_period,
-                upd.actioned_by,
-                pa.full_name AS actioned_by_name,
-                upd.created_at,
-                upd.updated_at
-            FROM upd
-            JOIN drivers d ON d.id = upd.driver_id
-            JOIN profiles p ON p.id = d.profile_id
-            LEFT JOIN profiles pa ON pa.id = upd.actioned_by
-            "#,
-            payload.id,
-            payload.actioned_by,
-            payload.rejection_reason
+        let row = sqlx::query_as::<_, Advance>(
+            "WITH upd AS ( \
+                UPDATE advances \
+                SET status = 'rejected', \
+                    rejection_reason = $3, \
+                    actioned_by = $2, \
+                    updated_at = NOW() \
+                WHERE id = $1 AND status = 'pending' \
+                RETURNING * \
+            ) \
+            SELECT \
+                upd.id, upd.driver_id, \
+                p.full_name AS driver_name, \
+                upd.amount_aed, \
+                upd.reason, \
+                upd.status, \
+                upd.rejection_reason, \
+                upd.payment_date, \
+                upd.method, \
+                upd.carry_forward_aed, \
+                upd.salary_period, \
+                upd.actioned_by, \
+                pa.full_name AS actioned_by_name, \
+                upd.created_at, \
+                upd.updated_at \
+            FROM upd \
+            JOIN drivers d ON d.id = upd.driver_id \
+            JOIN profiles p ON p.id = d.profile_id \
+            LEFT JOIN profiles pa ON pa.id = upd.actioned_by"
         )
+        .bind(payload.id)
+        .bind(payload.actioned_by)
+        .bind(payload.rejection_reason)
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| AppError::BadRequest("Advance not found or not in pending state".into()))?;
@@ -235,46 +220,43 @@ impl AdvanceRepository for PgAdvanceRepository {
     }
 
     async fn pay(&self, payload: PayAdvance) -> Result<Advance, AppError> {
-        let row = sqlx::query_as!(
-            Advance,
-            r#"
-            WITH upd AS (
-                UPDATE advances
-                SET status = 'paid',
-                    payment_date = $3,
-                    method = $4,
-                    salary_period = $5,
-                    actioned_by = $2,
-                    updated_at = NOW()
-                WHERE id = $1 AND status = 'approved'
-                RETURNING *
-            )
-            SELECT
-                upd.id, upd.driver_id,
-                p.full_name AS driver_name,
-                upd.amount_aed,
-                upd.reason,
-                upd.status AS "status: AdvanceStatus",
-                upd.rejection_reason,
-                upd.payment_date,
-                upd.method AS "method: PaymentMethod",
-                upd.carry_forward_aed,
-                upd.salary_period,
-                upd.actioned_by,
-                pa.full_name AS actioned_by_name,
-                upd.created_at,
-                upd.updated_at
-            FROM upd
-            JOIN drivers d ON d.id = upd.driver_id
-            JOIN profiles p ON p.id = d.profile_id
-            LEFT JOIN profiles pa ON pa.id = upd.actioned_by
-            "#,
-            payload.id,
-            payload.actioned_by,
-            payload.payment_date,
-            payload.method as PaymentMethod,
-            payload.salary_period
+        let row = sqlx::query_as::<_, Advance>(
+            "WITH upd AS ( \
+                UPDATE advances \
+                SET status = 'paid', \
+                    payment_date = $3, \
+                    method = $4, \
+                    salary_period = $5, \
+                    actioned_by = $2, \
+                    updated_at = NOW() \
+                WHERE id = $1 AND status = 'approved' \
+                RETURNING * \
+            ) \
+            SELECT \
+                upd.id, upd.driver_id, \
+                p.full_name AS driver_name, \
+                upd.amount_aed, \
+                upd.reason, \
+                upd.status, \
+                upd.rejection_reason, \
+                upd.payment_date, \
+                upd.method, \
+                upd.carry_forward_aed, \
+                upd.salary_period, \
+                upd.actioned_by, \
+                pa.full_name AS actioned_by_name, \
+                upd.created_at, \
+                upd.updated_at \
+            FROM upd \
+            JOIN drivers d ON d.id = upd.driver_id \
+            JOIN profiles p ON p.id = d.profile_id \
+            LEFT JOIN profiles pa ON pa.id = upd.actioned_by"
         )
+        .bind(payload.id)
+        .bind(payload.actioned_by)
+        .bind(payload.payment_date)
+        .bind(payload.method as PaymentMethod)
+        .bind(payload.salary_period)
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| AppError::BadRequest("Advance not found or not in approved state".into()))?;

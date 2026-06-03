@@ -41,35 +41,32 @@ impl HrRepository for PgHrRepository {
         .fetch_one(&self.pool)
         .await?;
 
-        let rows = sqlx::query_as!(
-            LeaveRequest,
-            r#"
-            SELECT
-                lr.id, lr.driver_id,
-                p.full_name AS driver_name,
-                lr.type AS "type: LeaveType",
-                lr.from_date, lr.to_date, lr.reason,
-                lr.status AS "status: LeaveStatus",
-                lr.actioned_by,
-                pa.full_name AS actioned_by_name,
-                lr.rejection_reason,
-                lr.created_at, lr.updated_at
-            FROM leave_requests lr
-            JOIN drivers d ON d.id = lr.driver_id
-            JOIN profiles p ON p.id = d.profile_id
-            LEFT JOIN profiles pa ON pa.id = lr.actioned_by
-            WHERE ($1::uuid IS NULL OR lr.driver_id = $1)
-              AND ($2::leave_status IS NULL OR lr.status = $2)
-              AND ($3::leave_type IS NULL OR lr.type = $3)
-            ORDER BY lr.created_at DESC
-            LIMIT $4 OFFSET $5
-            "#,
-            driver_id as Option<Uuid>,
-            status as Option<LeaveStatus>,
-            leave_type as Option<LeaveType>,
-            limit,
-            offset
+        let rows = sqlx::query_as::<_, LeaveRequest>(
+            "SELECT \
+                lr.id, lr.driver_id, \
+                p.full_name AS driver_name, \
+                lr.type, \
+                lr.from_date, lr.to_date, lr.reason, \
+                lr.status, \
+                lr.actioned_by, \
+                pa.full_name AS actioned_by_name, \
+                lr.rejection_reason, \
+                lr.created_at, lr.updated_at \
+            FROM leave_requests lr \
+            JOIN drivers d ON d.id = lr.driver_id \
+            JOIN profiles p ON p.id = d.profile_id \
+            LEFT JOIN profiles pa ON pa.id = lr.actioned_by \
+            WHERE ($1::uuid IS NULL OR lr.driver_id = $1) \
+              AND ($2::leave_status IS NULL OR lr.status = $2) \
+              AND ($3::leave_type IS NULL OR lr.type = $3) \
+            ORDER BY lr.created_at DESC \
+            LIMIT $4 OFFSET $5"
         )
+        .bind(driver_id)
+        .bind(status)
+        .bind(leave_type)
+        .bind(limit)
+        .bind(offset)
         .fetch_all(&self.pool)
         .await?;
 
@@ -77,27 +74,24 @@ impl HrRepository for PgHrRepository {
     }
 
     async fn find_by_id(&self, id: Uuid) -> Result<LeaveRequest, AppError> {
-        let row = sqlx::query_as!(
-            LeaveRequest,
-            r#"
-            SELECT
-                lr.id, lr.driver_id,
-                p.full_name AS driver_name,
-                lr.type AS "type: LeaveType",
-                lr.from_date, lr.to_date, lr.reason,
-                lr.status AS "status: LeaveStatus",
-                lr.actioned_by,
-                pa.full_name AS actioned_by_name,
-                lr.rejection_reason,
-                lr.created_at, lr.updated_at
-            FROM leave_requests lr
-            JOIN drivers d ON d.id = lr.driver_id
-            JOIN profiles p ON p.id = d.profile_id
-            LEFT JOIN profiles pa ON pa.id = lr.actioned_by
-            WHERE lr.id = $1
-            "#,
-            id
+        let row = sqlx::query_as::<_, LeaveRequest>(
+            "SELECT \
+                lr.id, lr.driver_id, \
+                p.full_name AS driver_name, \
+                lr.type, \
+                lr.from_date, lr.to_date, lr.reason, \
+                lr.status, \
+                lr.actioned_by, \
+                pa.full_name AS actioned_by_name, \
+                lr.rejection_reason, \
+                lr.created_at, lr.updated_at \
+            FROM leave_requests lr \
+            JOIN drivers d ON d.id = lr.driver_id \
+            JOIN profiles p ON p.id = d.profile_id \
+            LEFT JOIN profiles pa ON pa.id = lr.actioned_by \
+            WHERE lr.id = $1"
         )
+        .bind(id)
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| AppError::NotFound("Leave request not found".into()))?;
@@ -106,35 +100,32 @@ impl HrRepository for PgHrRepository {
     }
 
     async fn create(&self, payload: CreateLeaveRequest) -> Result<LeaveRequest, AppError> {
-        let row = sqlx::query_as!(
-            LeaveRequest,
-            r#"
-            WITH ins AS (
-                INSERT INTO leave_requests (driver_id, type, from_date, to_date, reason)
-                VALUES ($1, $2, $3, $4, $5)
-                RETURNING *
-            )
-            SELECT
-                ins.id, ins.driver_id,
-                p.full_name AS driver_name,
-                ins.type AS "type: LeaveType",
-                ins.from_date, ins.to_date, ins.reason,
-                ins.status AS "status: LeaveStatus",
-                ins.actioned_by,
-                pa.full_name AS actioned_by_name,
-                ins.rejection_reason,
-                ins.created_at, ins.updated_at
-            FROM ins
-            JOIN drivers d ON d.id = ins.driver_id
-            JOIN profiles p ON p.id = d.profile_id
-            LEFT JOIN profiles pa ON pa.id = ins.actioned_by
-            "#,
-            payload.driver_id,
-            payload.r#type as LeaveType,
-            payload.from_date,
-            payload.to_date,
-            payload.reason
+        let row = sqlx::query_as::<_, LeaveRequest>(
+            "WITH ins AS ( \
+                INSERT INTO leave_requests (driver_id, type, from_date, to_date, reason) \
+                VALUES ($1, $2, $3, $4, $5) \
+                RETURNING * \
+            ) \
+            SELECT \
+                ins.id, ins.driver_id, \
+                p.full_name AS driver_name, \
+                ins.type, \
+                ins.from_date, ins.to_date, ins.reason, \
+                ins.status, \
+                ins.actioned_by, \
+                pa.full_name AS actioned_by_name, \
+                ins.rejection_reason, \
+                ins.created_at, ins.updated_at \
+            FROM ins \
+            JOIN drivers d ON d.id = ins.driver_id \
+            JOIN profiles p ON p.id = d.profile_id \
+            LEFT JOIN profiles pa ON pa.id = ins.actioned_by"
         )
+        .bind(payload.driver_id)
+        .bind(payload.r#type as LeaveType)
+        .bind(payload.from_date)
+        .bind(payload.to_date)
+        .bind(payload.reason)
         .fetch_one(&self.pool)
         .await?;
 
@@ -142,33 +133,30 @@ impl HrRepository for PgHrRepository {
     }
 
     async fn approve(&self, payload: ActionLeaveRequest) -> Result<LeaveRequest, AppError> {
-        let row = sqlx::query_as!(
-            LeaveRequest,
-            r#"
-            WITH upd AS (
-                UPDATE leave_requests
-                SET status = 'approved', actioned_by = $2, updated_at = NOW()
-                WHERE id = $1 AND status = 'pending'
-                RETURNING *
-            )
-            SELECT
-                upd.id, upd.driver_id,
-                p.full_name AS driver_name,
-                upd.type AS "type: LeaveType",
-                upd.from_date, upd.to_date, upd.reason,
-                upd.status AS "status: LeaveStatus",
-                upd.actioned_by,
-                pa.full_name AS actioned_by_name,
-                upd.rejection_reason,
-                upd.created_at, upd.updated_at
-            FROM upd
-            JOIN drivers d ON d.id = upd.driver_id
-            JOIN profiles p ON p.id = d.profile_id
-            LEFT JOIN profiles pa ON pa.id = upd.actioned_by
-            "#,
-            payload.id,
-            payload.actioned_by
+        let row = sqlx::query_as::<_, LeaveRequest>(
+            "WITH upd AS ( \
+                UPDATE leave_requests \
+                SET status = 'approved', actioned_by = $2, updated_at = NOW() \
+                WHERE id = $1 AND status = 'pending' \
+                RETURNING * \
+            ) \
+            SELECT \
+                upd.id, upd.driver_id, \
+                p.full_name AS driver_name, \
+                upd.type, \
+                upd.from_date, upd.to_date, upd.reason, \
+                upd.status, \
+                upd.actioned_by, \
+                pa.full_name AS actioned_by_name, \
+                upd.rejection_reason, \
+                upd.created_at, upd.updated_at \
+            FROM upd \
+            JOIN drivers d ON d.id = upd.driver_id \
+            JOIN profiles p ON p.id = d.profile_id \
+            LEFT JOIN profiles pa ON pa.id = upd.actioned_by"
         )
+        .bind(payload.id)
+        .bind(payload.actioned_by)
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| AppError::BadRequest("Leave request not found or not in pending state".into()))?;
@@ -177,37 +165,34 @@ impl HrRepository for PgHrRepository {
     }
 
     async fn reject(&self, payload: ActionLeaveRequest) -> Result<LeaveRequest, AppError> {
-        let row = sqlx::query_as!(
-            LeaveRequest,
-            r#"
-            WITH upd AS (
-                UPDATE leave_requests
-                SET status = 'rejected',
-                    rejection_reason = $3,
-                    actioned_by = $2,
-                    updated_at = NOW()
-                WHERE id = $1 AND status = 'pending'
-                RETURNING *
-            )
-            SELECT
-                upd.id, upd.driver_id,
-                p.full_name AS driver_name,
-                upd.type AS "type: LeaveType",
-                upd.from_date, upd.to_date, upd.reason,
-                upd.status AS "status: LeaveStatus",
-                upd.actioned_by,
-                pa.full_name AS actioned_by_name,
-                upd.rejection_reason,
-                upd.created_at, upd.updated_at
-            FROM upd
-            JOIN drivers d ON d.id = upd.driver_id
-            JOIN profiles p ON p.id = d.profile_id
-            LEFT JOIN profiles pa ON pa.id = upd.actioned_by
-            "#,
-            payload.id,
-            payload.actioned_by,
-            payload.rejection_reason
+        let row = sqlx::query_as::<_, LeaveRequest>(
+            "WITH upd AS ( \
+                UPDATE leave_requests \
+                SET status = 'rejected', \
+                    rejection_reason = $3, \
+                    actioned_by = $2, \
+                    updated_at = NOW() \
+                WHERE id = $1 AND status = 'pending' \
+                RETURNING * \
+            ) \
+            SELECT \
+                upd.id, upd.driver_id, \
+                p.full_name AS driver_name, \
+                upd.type, \
+                upd.from_date, upd.to_date, upd.reason, \
+                upd.status, \
+                upd.actioned_by, \
+                pa.full_name AS actioned_by_name, \
+                upd.rejection_reason, \
+                upd.created_at, upd.updated_at \
+            FROM upd \
+            JOIN drivers d ON d.id = upd.driver_id \
+            JOIN profiles p ON p.id = d.profile_id \
+            LEFT JOIN profiles pa ON pa.id = upd.actioned_by"
         )
+        .bind(payload.id)
+        .bind(payload.actioned_by)
+        .bind(payload.rejection_reason)
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| AppError::BadRequest("Leave request not found or not in pending state".into()))?;

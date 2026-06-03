@@ -29,7 +29,7 @@ impl VehicleRepository for PgVehicleRepository {
         let rows = sqlx::query_as::<_, Vehicle>(
             "SELECT v.id, v.plate_number, v.make, v.model, v.year, v.color, \
                     v.registration_date, v.registration_expiry, v.insurance_expiry, \
-                    v.status AS \"status: VehicleStatus\", v.is_active, v.created_at, \
+                    v.status, v.is_active, v.created_at, \
                     va.driver_id AS assigned_driver_id, \
                     p.full_name AS assigned_driver_name \
              FROM vehicles v \
@@ -47,20 +47,19 @@ impl VehicleRepository for PgVehicleRepository {
     }
 
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Vehicle>, AppError> {
-        let row = sqlx::query_as!(
-            Vehicle,
-            r#"SELECT v.id, v.plate_number, v.make, v.model, v.year, v.color,
-                      v.registration_date, v.registration_expiry, v.insurance_expiry,
-                      v.status as "status: VehicleStatus", v.is_active, v.created_at,
-                      va.driver_id as assigned_driver_id,
-                      p.full_name as assigned_driver_name
-               FROM vehicles v
-               LEFT JOIN vehicle_assignments va ON va.vehicle_id = v.id AND va.unassigned_at IS NULL
-               LEFT JOIN drivers d ON d.id = va.driver_id
-               LEFT JOIN profiles p ON p.id = d.profile_id
-               WHERE v.id = $1"#,
-            id
+        let row = sqlx::query_as::<_, Vehicle>(
+            "SELECT v.id, v.plate_number, v.make, v.model, v.year, v.color, \
+                    v.registration_date, v.registration_expiry, v.insurance_expiry, \
+                    v.status, v.is_active, v.created_at, \
+                    va.driver_id AS assigned_driver_id, \
+                    p.full_name AS assigned_driver_name \
+             FROM vehicles v \
+             LEFT JOIN vehicle_assignments va ON va.vehicle_id = v.id AND va.unassigned_at IS NULL \
+             LEFT JOIN drivers d ON d.id = va.driver_id \
+             LEFT JOIN profiles p ON p.id = d.profile_id \
+             WHERE v.id = $1"
         )
+        .bind(id)
         .fetch_optional(&self.pool)
         .await?;
         Ok(row)

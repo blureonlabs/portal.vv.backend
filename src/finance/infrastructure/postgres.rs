@@ -40,31 +40,28 @@ impl FinanceRepository for PgFinanceRepository {
         .fetch_one(&self.pool)
         .await?;
 
-        let rows = sqlx::query_as!(
-            Expense,
-            r#"
-            SELECT
-                e.id, e.driver_id,
-                p.full_name AS driver_name,
-                e.entered_by,
-                e.amount_aed,
-                e.category AS "category: ExpenseCategory",
-                e.date,
-                e.receipt_url, e.notes, e.created_at
-            FROM expenses e
-            LEFT JOIN drivers d ON d.id = e.driver_id
-            LEFT JOIN profiles p ON p.id = d.profile_id
-            WHERE e.date BETWEEN $2 AND $3
-              AND ($1::uuid IS NULL OR e.driver_id = $1)
-            ORDER BY e.date DESC, e.created_at DESC
-            LIMIT $4 OFFSET $5
-            "#,
-            driver_id as Option<Uuid>,
-            from,
-            to,
-            limit,
-            offset
+        let rows = sqlx::query_as::<_, Expense>(
+            "SELECT \
+                e.id, e.driver_id, \
+                p.full_name AS driver_name, \
+                e.entered_by, \
+                e.amount_aed, \
+                e.category, \
+                e.date, \
+                e.receipt_url, e.notes, e.created_at \
+            FROM expenses e \
+            LEFT JOIN drivers d ON d.id = e.driver_id \
+            LEFT JOIN profiles p ON p.id = d.profile_id \
+            WHERE e.date BETWEEN $2 AND $3 \
+              AND ($1::uuid IS NULL OR e.driver_id = $1) \
+            ORDER BY e.date DESC, e.created_at DESC \
+            LIMIT $4 OFFSET $5"
         )
+        .bind(driver_id)
+        .bind(from)
+        .bind(to)
+        .bind(limit)
+        .bind(offset)
         .fetch_all(&self.pool)
         .await?;
 
@@ -72,34 +69,31 @@ impl FinanceRepository for PgFinanceRepository {
     }
 
     async fn create_expense(&self, payload: CreateExpense) -> Result<Expense, AppError> {
-        let row = sqlx::query_as!(
-            Expense,
-            r#"
-            WITH ins AS (
-                INSERT INTO expenses (driver_id, entered_by, amount_aed, category, date, receipt_url, notes)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                RETURNING *
-            )
-            SELECT
-                ins.id, ins.driver_id,
-                p.full_name AS driver_name,
-                ins.entered_by,
-                ins.amount_aed,
-                ins.category AS "category: ExpenseCategory",
-                ins.date,
-                ins.receipt_url, ins.notes, ins.created_at
-            FROM ins
-            LEFT JOIN drivers d ON d.id = ins.driver_id
-            LEFT JOIN profiles p ON p.id = d.profile_id
-            "#,
-            payload.driver_id,
-            payload.entered_by,
-            payload.amount_aed,
-            payload.category as ExpenseCategory,
-            payload.date,
-            payload.receipt_url,
-            payload.notes
+        let row = sqlx::query_as::<_, Expense>(
+            "WITH ins AS ( \
+                INSERT INTO expenses (driver_id, entered_by, amount_aed, category, date, receipt_url, notes) \
+                VALUES ($1, $2, $3, $4, $5, $6, $7) \
+                RETURNING * \
+            ) \
+            SELECT \
+                ins.id, ins.driver_id, \
+                p.full_name AS driver_name, \
+                ins.entered_by, \
+                ins.amount_aed, \
+                ins.category, \
+                ins.date, \
+                ins.receipt_url, ins.notes, ins.created_at \
+            FROM ins \
+            LEFT JOIN drivers d ON d.id = ins.driver_id \
+            LEFT JOIN profiles p ON p.id = d.profile_id"
         )
+        .bind(payload.driver_id)
+        .bind(payload.entered_by)
+        .bind(payload.amount_aed)
+        .bind(payload.category as ExpenseCategory)
+        .bind(payload.date)
+        .bind(payload.receipt_url)
+        .bind(payload.notes)
         .fetch_one(&self.pool)
         .await?;
 
