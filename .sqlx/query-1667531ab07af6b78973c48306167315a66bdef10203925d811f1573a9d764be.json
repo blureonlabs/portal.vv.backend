@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                i.id, i.driver_id,\n                pd.full_name AS driver_name,\n                i.invoice_no,\n                i.period_start, i.period_end,\n                i.line_items_json,\n                i.total_aed,\n                i.pdf_url,\n                i.generated_by,\n                pg.full_name AS generated_by_name,\n                i.created_at\n            FROM invoices i\n            JOIN drivers d ON d.id = i.driver_id\n            JOIN profiles pd ON pd.id = d.profile_id\n            JOIN profiles pg ON pg.id = i.generated_by\n            WHERE ($1::uuid IS NULL OR i.driver_id = $1)\n            ORDER BY i.created_at DESC\n            ",
+  "query": "\n            SELECT\n                i.id, i.driver_id,\n                pd.full_name AS driver_name,\n                i.invoice_no,\n                i.period_start, i.period_end,\n                i.line_items_json,\n                i.total_aed,\n                i.pdf_url,\n                i.generated_by,\n                pg.full_name AS generated_by_name,\n                i.created_at\n            FROM invoices i\n            JOIN drivers d ON d.id = i.driver_id\n            JOIN profiles pd ON pd.id = d.profile_id\n            JOIN profiles pg ON pg.id = i.generated_by\n            WHERE ($1::uuid IS NULL OR i.driver_id = $1)\n            ORDER BY i.created_at DESC\n            LIMIT $2 OFFSET $3\n            ",
   "describe": {
     "columns": [
       {
@@ -66,7 +66,9 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Int8",
+        "Int8"
       ]
     },
     "nullable": [
@@ -84,5 +86,5 @@
       false
     ]
   },
-  "hash": "16d933e0f98bb5b6e89da1f9bacd05f239c751b863898646aa966d3ea4a85758"
+  "hash": "1667531ab07af6b78973c48306167315a66bdef10203925d811f1573a9d764be"
 }

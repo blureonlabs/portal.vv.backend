@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, role as \"role: Role\", full_name, email, is_active, avatar_url, invited_by, created_at\n               FROM profiles ORDER BY created_at DESC",
+  "query": "SELECT o.id, o.profile_id, p.full_name, p.email,\n                      p.phone, o.company_name, o.notes, o.is_active, o.created_at\n               FROM owners o\n               JOIN profiles p ON p.id = o.profile_id\n               ORDER BY p.full_name\n               LIMIT $1 OFFSET $2",
   "describe": {
     "columns": [
       {
@@ -10,21 +10,8 @@
       },
       {
         "ordinal": 1,
-        "name": "role: Role",
-        "type_info": {
-          "Custom": {
-            "name": "user_role",
-            "kind": {
-              "Enum": [
-                "super_admin",
-                "accountant",
-                "hr",
-                "driver",
-                "owner"
-              ]
-            }
-          }
-        }
+        "name": "profile_id",
+        "type_info": "Uuid"
       },
       {
         "ordinal": 2,
@@ -38,38 +25,47 @@
       },
       {
         "ordinal": 4,
-        "name": "is_active",
-        "type_info": "Bool"
+        "name": "phone",
+        "type_info": "Text"
       },
       {
         "ordinal": 5,
-        "name": "avatar_url",
+        "name": "company_name",
         "type_info": "Text"
       },
       {
         "ordinal": 6,
-        "name": "invited_by",
-        "type_info": "Uuid"
+        "name": "notes",
+        "type_info": "Text"
       },
       {
         "ordinal": 7,
+        "name": "is_active",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz"
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
     },
     "nullable": [
       false,
       false,
       false,
       false,
+      true,
+      true,
+      true,
       false,
-      true,
-      true,
       false
     ]
   },
-  "hash": "80ce0194a701c000760435b6491fc2c17d1e8490e7936fee34480cfb07a9d9f3"
+  "hash": "f117c9379d88e5d8e8722afe96d179f82e27af0c6af0d57427c2d8d2f0199bdb"
 }

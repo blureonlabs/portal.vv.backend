@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                t.id, t.driver_id,\n                p.full_name AS driver_name,\n                t.vehicle_id, t.entered_by,\n                t.trip_date,\n                t.cash_aed, t.uber_cash_aed, t.bolt_cash_aed, t.card_aed,\n                t.source AS \"source: TripSource\",\n                t.notes, t.is_deleted, t.created_at\n            FROM trips t\n            JOIN drivers d ON d.id = t.driver_id\n            JOIN profiles p ON p.id = d.profile_id\n            WHERE t.is_deleted = false\n              AND t.trip_date BETWEEN $2 AND $3\n              AND ($1::uuid IS NULL OR t.driver_id = $1)\n            ORDER BY t.trip_date DESC, t.created_at DESC\n            ",
+  "query": "\n            SELECT\n                t.id, t.driver_id,\n                p.full_name AS driver_name,\n                t.vehicle_id, t.entered_by,\n                t.trip_date,\n                t.cash_aed, t.uber_cash_aed, t.bolt_cash_aed, t.card_aed,\n                t.source AS \"source: TripSource\",\n                t.notes, t.is_deleted, t.created_at\n            FROM trips t\n            JOIN drivers d ON d.id = t.driver_id\n            JOIN profiles p ON p.id = d.profile_id\n            WHERE t.is_deleted = false\n              AND t.trip_date BETWEEN $2 AND $3\n              AND ($1::uuid IS NULL OR t.driver_id = $1)\n            ORDER BY t.trip_date DESC, t.created_at DESC\n            LIMIT $4 OFFSET $5\n            ",
   "describe": {
     "columns": [
       {
@@ -89,7 +89,9 @@
       "Left": [
         "Uuid",
         "Date",
-        "Date"
+        "Date",
+        "Int8",
+        "Int8"
       ]
     },
     "nullable": [
@@ -109,5 +111,5 @@
       false
     ]
   },
-  "hash": "7a45de5349020a0939e965659b8d74adaa90d74dfb4be72681481b4f258c657c"
+  "hash": "730e10ebd7c1a0a35ef77af397a3bd00058f3840f4d72a1740e80dcc783b65c5"
 }
