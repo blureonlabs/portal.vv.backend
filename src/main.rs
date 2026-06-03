@@ -121,6 +121,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
     let document_deps = document::configure::build(&deps);
     let notification_deps = notification::configure::build(Arc::clone(&notification_svc));
     let platform_deps = platform::configure::build(&deps);
+    let config_deps = config::configure::build(&deps);
 
     // Cross-feature wiring: salary needs advance (DeductionPort) + settings repo
     let deduction_port: Arc<dyn DeductionPort> = advance_deps.repo.clone();
@@ -179,6 +180,7 @@ async fn start_server(config: AppConfig, db: PgDatabase) -> anyhow::Result<()> {
                     .configure(|cfg| comms::configure::register(&comms_deps, cfg))
                     .configure(|cfg| document::configure::register(&document_deps, cfg))
                     .configure(|cfg| notification::configure::register(&notification_deps, cfg))
+                    .configure(|cfg| config::configure::register(&config_deps, cfg))
             )
     })
     .bind(&addr)?;
